@@ -6,12 +6,29 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "verify:accounting": "tsx scripts/verify-accounting.ts",
+    "verify:pdf": "tsx scripts/verify-pdf-report.ts",
+    "verify:features": "tsx scripts/verify-features.ts",
+    "verify:logic": "node scripts/verify-logic.mjs",
+    "verify:snapshot": "node scripts/verify-snapshot-cache.mjs",
+    "verify:all": "npm run verify:logic && npm run verify:snapshot && npm run verify:accounting && npm run verify:pdf && npm run verify:features",
+    "verify:supabase": "tsx scripts/verify-features.ts",
+    "verify:supabase:live": "tsx scripts/verify-supabase-live.ts",
+    "verify:mobile": "node scripts/verify-mobile.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.110.8",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.4.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
+    "lucide-react": "^1.17.0",
     "next": "16.2.6",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "recharts": "^3.8.1",
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -21,6 +38,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
+    "tsx": "^4.23.1",
     "typescript": "^5"
   }
 }

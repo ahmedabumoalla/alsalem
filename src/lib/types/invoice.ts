@@ -2,6 +2,19 @@ export type PaymentStatus = "paid" | "partial" | "deferred";
 export type PaymentMethod = "cash" | "bank_transfer";
 export type LegacyPaymentMethod = PaymentMethod | "credit";
 export type CostSource = "auto" | "manual";
+export type InitialPaymentMode = "none" | "deferred" | "partial" | "paid";
+
+export interface InitialPaymentInstruction {
+  mode: InitialPaymentMode;
+  amount?: number;
+  paymentMethod?: "cash" | "bank_transfer" | "other";
+  reference?: string;
+}
+
+export interface CreateInvoiceInput {
+  invoice: Invoice;
+  initialPayment: InitialPaymentInstruction;
+}
 
 export interface InvoiceItem {
   id: string;

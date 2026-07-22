@@ -75,7 +75,10 @@ export function mapReceipt(row: ReceiptRow): CustomerReceipt {
     paymentMethod: row.payment_method,
     reference: row.reference_number ?? undefined,
     notes: row.notes ?? undefined,
-    source: row.source === "legacy_invoice_payment" ? row.source : undefined,
+    source:
+      row.source === "legacy_invoice_payment" || row.source === "invoice_initial_payment"
+        ? row.source
+        : undefined,
     sourceInvoiceId: row.source_invoice_id ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

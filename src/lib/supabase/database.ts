@@ -71,14 +71,14 @@ export type InvoiceItemRow = {
 export type ReceiptRow = {
   id: string;
   receipt_number: string;
-  customer_id: string;
+  customer_id: string | null;
   customer_name_snapshot: string;
   date: string;
   amount: number;
   payment_method: "cash" | "bank_transfer" | "other";
   reference_number: string | null;
   notes: string | null;
-  source: "manual" | "legacy_invoice_payment";
+  source: "manual" | "legacy_invoice_payment" | "invoice_initial_payment";
   source_invoice_id: string | null;
   created_at: string;
   updated_at: string;
@@ -139,6 +139,10 @@ export interface Database {
     Views: Record<never, never>;
     Functions: {
       create_invoice_with_items: { Args: { p_invoice: Json; p_items: Json }; Returns: Json };
+      create_invoice_with_initial_payment: {
+        Args: { p_invoice: Json; p_items: Json; p_initial_payment: Json };
+        Returns: Json;
+      };
       update_invoice_with_items: { Args: { p_id: string; p_invoice: Json; p_items: Json }; Returns: Json };
       soft_delete_invoice: { Args: { p_id: string }; Returns: Json };
       restore_invoice: { Args: { p_id: string }; Returns: Json };

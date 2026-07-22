@@ -19,11 +19,26 @@ assert.deepEqual(filterLeads([normalized, second], { query: "سارة", source: 
 const pwaManifest = manifest();
 assert.equal(pwaManifest.short_name, "FoamSales");
 assert.equal(pwaManifest.display, "standalone");
-assert.equal(pwaManifest.start_url, "/");
+assert.equal(pwaManifest.start_url, "/sales/new");
+assert.equal(pwaManifest.scope, "/");
 for (const file of ["public/sw.js", "public/offline.html", "public/icons/icon-192.png", "public/icons/icon-512.png", "public/icons/icon-maskable-512.png", "public/apple-touch-icon.png"]) assert.ok(existsSync(resolve(file)), `${file} must exist`);
 const serviceWorker = readFileSync(resolve("public/sw.js"), "utf8");
 assert.match(serviceWorker, /pathname\.startsWith\("\/api\/"\)/);
 assert.ok(!serviceWorker.includes("foam_sales_invoices"));
+const rootPage = readFileSync(resolve("src/app/page.tsx"), "utf8");
+assert.match(rootPage, /redirect\("\/sales\/new"\)/);
+assert.ok(!rootPage.includes("HeroSection"));
+const header = readFileSync(resolve("src/components/layout/app-header.tsx"), "utf8");
+assert.match(header, /<Link href="\/sales\/new" className="group/);
+assert.ok(!header.includes('{ href: "/",'));
+
+const invoiceForm = readFileSync(resolve("src/components/sales/invoice-form.tsx"), "utf8");
+const heightField = invoiceForm.indexOf('label="الارتفاع (سم)"');
+const widthField = invoiceForm.indexOf('label="العرض (سم)"');
+const lengthField = invoiceForm.indexOf('label="الطول (سم)"');
+assert.ok(heightField >= 0 && heightField < widthField && widthField < lengthField);
+assert.match(invoiceForm, /!existingInvoice && \(/);
+assert.match(invoiceForm, /تسجيل دفعة أولية - اختياري/);
 
 const migration = readFileSync(resolve("supabase/migrations/001_initial_schema.sql"), "utf8");
 const tables = ["pressure_costs", "customers", "invoices", "invoice_items", "customer_receipts", "leads", "audit_logs", "app_meta"];
@@ -37,6 +52,14 @@ assert.match(migration, /source_invoice_id uuid references public\.invoices\(id\
 assert.match(migration, /revoke all on all tables in schema public from public, anon, authenticated/);
 assert.match(migration, /revoke execute on all functions in schema public from public, anon, authenticated/);
 assert.ok(!/create policy/i.test(migration));
+
+const migration2 = readFileSync(resolve("supabase/migrations/002_invoice_initial_payment.sql"), "utf8");
+assert.match(migration2, /add value if not exists 'invoice_initial_payment'/);
+assert.match(migration2, /function public\.create_invoice_with_initial_payment/);
+assert.match(migration2, /pg_advisory_xact_lock/);
+assert.match(migration2, /customer_receipts_unique_active_invoice_source/);
+assert.match(migration2, /alter column customer_id drop not null/);
+assert.match(migration2, /invoice_total_value < receipts_total_value/);
 
 function filesBelow(directory: string): string[] {
   return readdirSync(directory).flatMap((name) => { const path = join(directory, name); return statSync(path).isDirectory() ? filesBelow(path) : [path]; });

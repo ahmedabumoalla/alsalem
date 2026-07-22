@@ -9,7 +9,7 @@ export interface CustomerReceipt {
   paymentMethod: ReceiptPaymentMethod;
   reference?: string;
   notes?: string;
-  source?: "legacy_invoice_payment";
+  source?: "legacy_invoice_payment" | "invoice_initial_payment";
   sourceInvoiceId?: string;
   createdAt: string;
   updatedAt: string;

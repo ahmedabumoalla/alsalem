@@ -1,6 +1,6 @@
 "use client";
 
-import type { Invoice } from "@/lib/types/invoice";
+import type { InitialPaymentInstruction, Invoice } from "@/lib/types/invoice";
 import type { FoamPressureCost } from "@/lib/types/pressure-cost";
 import type { CustomerReceipt } from "@/lib/types/receipt";
 import type { Lead } from "@/lib/types/lead";
@@ -8,7 +8,20 @@ import { notifyDataChanged, requestData } from "@/lib/api/client";
 
 const body = (value: unknown) => JSON.stringify(value);
 
-export async function createInvoice(invoice: Invoice): Promise<Invoice> { const value = await requestData<Invoice>("/api/invoices", { method: "POST", body: body(invoice) }); notifyDataChanged("invoices"); return value; }
+export async function createInvoice(
+  invoice: Invoice,
+  initialPayment: InitialPaymentInstruction = { mode: "none" },
+): Promise<Invoice> {
+  const value = await requestData<Invoice>("/api/invoices", {
+    method: "POST",
+    body: body({ invoice, initialPayment }),
+  });
+  notifyDataChanged("invoices");
+  if (initialPayment.mode === "partial" || initialPayment.mode === "paid") {
+    notifyDataChanged("receipts");
+  }
+  return value;
+}
 export async function updateInvoice(id: string, invoice: Invoice): Promise<Invoice> { const value = await requestData<Invoice>(`/api/invoices/${encodeURIComponent(id)}`, { method: "PUT", body: body(invoice) }); notifyDataChanged("invoices"); return value; }
 export async function deleteInvoice(id: string): Promise<void> { await requestData(`/api/invoices/${encodeURIComponent(id)}`, { method: "DELETE" }); notifyDataChanged("invoices"); }
 

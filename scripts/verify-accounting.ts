@@ -38,6 +38,10 @@ assert.equal(manualAfterDimensionChange.unitCost, 125.25);
 const resetToAuto = calculateInvoiceItem({ id: "2", lengthCm: 25, widthCm: 40, heightCm: 50, densityPressure: 8, quantity: 2, unitSalePrice: 350, standardBlockCost: 200, costSource: "auto" });
 assert.notEqual(resetToAuto.unitCost, 125.25);
 assert.throws(() => calculateInvoiceItem({ id: "bad", lengthCm: 1, widthCm: 1, heightCm: 1, densityPressure: 8, quantity: 1, unitSalePrice: 1, standardBlockCost: 1, unitCost: Infinity, costSource: "manual" }));
+const distinctDimensions = calculateInvoiceItem({ id: "dimensions", heightCm: 10, widthCm: 20, lengthCm: 300, densityPressure: 8, quantity: 1, unitSalePrice: 100, standardBlockCost: 480 });
+assert.equal(distinctDimensions.heightCm, 10);
+assert.equal(distinctDimensions.widthCm, 20);
+assert.equal(distinctDimensions.lengthCm, 300);
 const totals = calculateInvoiceTotals([automatic, manual], 50);
 assert.deepEqual(totals, { productSubtotal: 1150, invoiceTotal: 1200, totalCost: 550.5, netProfit: 649.5, profitMargin: 54.13 });
 

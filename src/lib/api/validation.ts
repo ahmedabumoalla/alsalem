@@ -1,4 +1,8 @@
-import type { Invoice } from "@/lib/types/invoice";
+import type {
+  CreateInvoiceInput,
+  InitialPaymentInstruction,
+  Invoice,
+} from "@/lib/types/invoice";
 import type { FoamPressureCost } from "@/lib/types/pressure-cost";
 import type { CustomerReceipt } from "@/lib/types/receipt";
 import type { Lead } from "@/lib/types/lead";
@@ -30,6 +34,64 @@ export function parseInvoiceInput(value: unknown): Invoice {
   return { ...invoice, customerPhone: normalizePhone(invoice.customerPhone ?? "") || undefined };
 }
 
+function parseInitialPaymentInput(
+  value: unknown,
+  invoiceTotal: number,
+): InitialPaymentInstruction {
+  if (!isRecord(value)) return { mode: "none" };
+  const mode = value.mode;
+  if (!["none", "deferred", "partial", "paid"].includes(String(mode))) {
+    throw new Error("خيار الدفعة الأولية غير صالح.");
+  }
+  const normalizedMode = String(mode) as InitialPaymentInstruction["mode"];
+  const paymentMethod = String(value.paymentMethod ?? "cash");
+  if (!["cash", "bank_transfer", "other"].includes(paymentMethod)) {
+    throw new Error("طريقة الدفع غير صالحة.");
+  }
+  const normalizedPaymentMethod = paymentMethod as NonNullable<
+    InitialPaymentInstruction["paymentMethod"]
+  >;
+  const reference =
+    typeof value.reference === "string" ? value.reference.trim() || undefined : undefined;
+  if (normalizedMode === "none" || normalizedMode === "deferred") {
+    return { mode: normalizedMode };
+  }
+  if (normalizedMode === "paid") {
+    if (!Number.isFinite(invoiceTotal) || invoiceTotal <= 0) {
+      throw new Error("إجمالي الفاتورة يجب أن يكون أكبر من صفر لتسجيل السداد الكامل.");
+    }
+    return {
+      mode: normalizedMode,
+      amount: invoiceTotal,
+      paymentMethod: normalizedPaymentMethod,
+      reference,
+    };
+  }
+  const amount = Number(value.amount);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error("أدخل مبلغًا أكبر من صفر");
+  }
+  if (amount >= invoiceTotal) {
+    throw new Error("المبلغ الجزئي يجب أن يكون أقل من إجمالي الفاتورة");
+  }
+  return {
+    mode: normalizedMode,
+    amount,
+    paymentMethod: normalizedPaymentMethod,
+    reference,
+  };
+}
+
+export function parseCreateInvoiceInput(value: unknown): CreateInvoiceInput {
+  const wrapped = isRecord(value) && "invoice" in value;
+  const invoice = parseInvoiceInput(wrapped ? value.invoice : value);
+  const initialPayment = parseInitialPaymentInput(
+    wrapped && isRecord(value) ? value.initialPayment : undefined,
+    invoice.invoiceTotal,
+  );
+  return { invoice, initialPayment };
+}
+
 export function parsePressureCostInput(value: unknown): FoamPressureCost {
   if (!isRecord(value)) throw new Error("بيانات تكلفة الضغط غير صالحة.");
   const item: FoamPressureCost = {
@@ -49,7 +111,10 @@ export function parseReceiptInput(value: unknown): CustomerReceipt {
   if (!isRecord(value)) throw new Error("بيانات سند القبض غير صالحة.");
   const paymentMethod = value.paymentMethod;
   if (paymentMethod !== "cash" && paymentMethod !== "bank_transfer" && paymentMethod !== "other") throw new Error("طريقة الدفع غير صالحة.");
-  const source = value.source === "legacy_invoice_payment" ? value.source : undefined;
+  const source =
+    value.source === "legacy_invoice_payment" || value.source === "invoice_initial_payment"
+      ? value.source
+      : undefined;
   const receipt: CustomerReceipt = {
     id: typeof value.id === "string" ? value.id : "",
     receiptNumber: typeof value.receiptNumber === "string" ? value.receiptNumber.trim() : "",

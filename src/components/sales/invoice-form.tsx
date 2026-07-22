@@ -13,7 +13,13 @@ import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast-provider";
 import { usePressureCosts } from "@/lib/hooks/use-pressure-costs";
 import { createInvoice, updateInvoice } from "@/lib/api/records-client";
-import type { CostSource, Invoice, InvoiceItem } from "@/lib/types/invoice";
+import type {
+  CostSource,
+  InitialPaymentInstruction,
+  InitialPaymentMode,
+  Invoice,
+  InvoiceItem,
+} from "@/lib/types/invoice";
 import { INVOICE_SCHEMA_VERSION } from "@/lib/types/invoice";
 import { isValidOptionalPhone, normalizePhone } from "@/lib/utils/contact";
 import { formatCurrency } from "@/lib/utils/format";
@@ -47,6 +53,13 @@ interface FormData {
   deliveryFee: string;
   notes: string;
   items: ItemForm[];
+}
+
+interface InitialPaymentForm {
+  mode: InitialPaymentMode;
+  amount: string;
+  paymentMethod: "cash" | "bank_transfer" | "other";
+  reference: string;
 }
 
 type Errors = Record<string, string>;
@@ -112,9 +125,9 @@ function validateForm(form: FormData, pressures: Set<number>): Errors {
   form.items.forEach((item, index) => {
     const prefix = `item-${item.id}-`;
     const dimensions: [keyof ItemForm, string][] = [
-      ["lengthCm", "الطول"],
-      ["widthCm", "العرض"],
       ["heightCm", "الارتفاع"],
+      ["widthCm", "العرض"],
+      ["lengthCm", "الطول"],
     ];
     dimensions.forEach(([key, label]) => {
       const value = Number(item[key]);
@@ -174,6 +187,12 @@ export function InvoiceForm({
           items: [newItem()],
         };
   const [form, setForm] = useState<FormData>(initialForm);
+  const [initialPayment, setInitialPayment] = useState<InitialPaymentForm>({
+    mode: "none",
+    amount: "",
+    paymentMethod: "cash",
+    reference: "",
+  });
   const [errors, setErrors] = useState<Errors>({});
   const [saving, setSaving] = useState(false);
   const costMap = useMemo(
@@ -274,6 +293,16 @@ export function InvoiceForm({
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     const nextErrors = validateForm(form, new Set(pressureCosts.map((cost) => cost.pressure)));
+    if (!existingInvoice && initialPayment.mode === "partial") {
+      const amount = Number(initialPayment.amount);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        nextErrors.initialPaymentAmount = "أدخل مبلغًا أكبر من صفر";
+      } else if (amount > totals.invoiceTotal) {
+        nextErrors.initialPaymentAmount = "لا يمكن أن تتجاوز الدفعة إجمالي الفاتورة";
+      } else if (amount === totals.invoiceTotal) {
+        nextErrors.initialPaymentAmount = "المبلغ الجزئي يجب أن يكون أقل من إجمالي الفاتورة";
+      }
+    }
     if (Object.keys(nextErrors).length) {
       setErrors(nextErrors);
       showToast("راجع الحقول المطلوبة", "error");
@@ -307,12 +336,30 @@ export function InvoiceForm({
         await updateInvoice(existingInvoice.id, invoice);
         showToast("تم تحديث الفاتورة بنجاح");
       } else {
-        await createInvoice(invoice);
+        const paymentInstruction: InitialPaymentInstruction = {
+          mode: initialPayment.mode,
+          amount:
+            initialPayment.mode === "paid"
+              ? totals.invoiceTotal
+              : initialPayment.mode === "partial"
+                ? Number(initialPayment.amount)
+                : undefined,
+          paymentMethod: initialPayment.paymentMethod,
+          reference: initialPayment.reference.trim() || undefined,
+        };
+        await createInvoice(invoice, paymentInstruction);
         showToast("تم حفظ الفاتورة بنجاح");
       }
       router.push("/reports");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "حدث خطأ أثناء حفظ الفاتورة";
+      const hasInitialReceipt =
+        !existingInvoice &&
+        (initialPayment.mode === "partial" || initialPayment.mode === "paid");
+      const message = hasInitialReceipt
+        ? "تعذر حفظ الفاتورة والدفعة، ولم يتم تسجيل أي بيانات"
+        : error instanceof Error
+          ? error.message
+          : "حدث خطأ أثناء حفظ الفاتورة";
       setErrors({ general: message });
       showToast(message, "error");
     } finally {
@@ -377,9 +424,9 @@ export function InvoiceForm({
                   </div>
                 </CardHeader>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  <Input label="الطول (سم)" type="number" min="0" step="any" value={item.lengthCm} onChange={(event) => updateItem(item.id, "lengthCm", event.target.value)} error={errors[prefix + "lengthCm"]} />
-                  <Input label="العرض (سم)" type="number" min="0" step="any" value={item.widthCm} onChange={(event) => updateItem(item.id, "widthCm", event.target.value)} error={errors[prefix + "widthCm"]} />
                   <Input label="الارتفاع (سم)" type="number" min="0" step="any" value={item.heightCm} onChange={(event) => updateItem(item.id, "heightCm", event.target.value)} error={errors[prefix + "heightCm"]} />
+                  <Input label="العرض (سم)" type="number" min="0" step="any" value={item.widthCm} onChange={(event) => updateItem(item.id, "widthCm", event.target.value)} error={errors[prefix + "widthCm"]} />
+                  <Input label="الطول (سم)" type="number" min="0" step="any" value={item.lengthCm} onChange={(event) => updateItem(item.id, "lengthCm", event.target.value)} error={errors[prefix + "lengthCm"]} />
                   <Select label="الضغط" value={item.densityPressure} onChange={(event) => updateItem(item.id, "densityPressure", event.target.value)} error={errors[prefix + "densityPressure"]} options={[{ value: "", label: "اختر الضغط" }, ...pressureCosts.map((cost) => ({ value: String(cost.pressure), label: String(cost.pressure) }))]} />
                   <Input label="الكمية" type="number" min="1" step="1" value={item.quantity} onChange={(event) => updateItem(item.id, "quantity", event.target.value)} error={errors[prefix + "quantity"]} />
                   <Input label="سعر بيع الوحدة (ر.س)" type="number" min="0" step="any" value={item.unitSalePrice} onChange={(event) => updateItem(item.id, "unitSalePrice", event.target.value)} error={errors[prefix + "unitSalePrice"]} />
@@ -403,12 +450,97 @@ export function InvoiceForm({
               </Card>
             );
           })}
+
+          {!existingInvoice && (
+            <details className="group rounded-3xl border border-border bg-card shadow-sm">
+              <summary className="cursor-pointer list-none px-4 py-4 font-bold text-primary sm:px-6">
+                <span className="flex items-center justify-between gap-3">
+                  تسجيل دفعة أولية - اختياري
+                  <span className="text-sm font-normal text-muted group-open:hidden">بدون دفعة</span>
+                </span>
+              </summary>
+              <div className="space-y-4 border-t border-border px-4 py-5 sm:px-6">
+                <Select
+                  label="حالة السداد عند إنشاء الفاتورة"
+                  value={initialPayment.mode}
+                  onChange={(event) => {
+                    setInitialPayment((current) => ({
+                      ...current,
+                      mode: event.target.value as InitialPaymentMode,
+                    }));
+                    setErrors((current) => {
+                      const next = { ...current };
+                      delete next.initialPaymentAmount;
+                      return next;
+                    });
+                  }}
+                  options={[
+                    { value: "none", label: "بدون تسجيل دفعة" },
+                    { value: "deferred", label: "آجل" },
+                    { value: "partial", label: "مدفوع جزئيًا" },
+                    { value: "paid", label: "مدفوع بالكامل" },
+                  ]}
+                />
+                {initialPayment.mode === "partial" && (
+                  <Input
+                    label="المبلغ المدفوع"
+                    type="number"
+                    min="0"
+                    step="any"
+                    className="w-full"
+                    value={initialPayment.amount}
+                    onChange={(event) => {
+                      setInitialPayment((current) => ({ ...current, amount: event.target.value }));
+                      setErrors((current) => {
+                        const next = { ...current };
+                        delete next.initialPaymentAmount;
+                        return next;
+                      });
+                    }}
+                    error={errors.initialPaymentAmount}
+                    required
+                  />
+                )}
+                {(initialPayment.mode === "partial" || initialPayment.mode === "paid") && (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Select
+                      label="طريقة الدفع"
+                      value={initialPayment.paymentMethod}
+                      onChange={(event) =>
+                        setInitialPayment((current) => ({
+                          ...current,
+                          paymentMethod: event.target.value as InitialPaymentForm["paymentMethod"],
+                        }))
+                      }
+                      options={[
+                        { value: "cash", label: "نقدي" },
+                        { value: "bank_transfer", label: "تحويل بنكي" },
+                        { value: "other", label: "أخرى" },
+                      ]}
+                    />
+                    <Input
+                      label="رقم المرجع (اختياري)"
+                      value={initialPayment.reference}
+                      onChange={(event) =>
+                        setInitialPayment((current) => ({ ...current, reference: event.target.value }))
+                      }
+                    />
+                  </div>
+                )}
+                <div className="grid gap-2 rounded-2xl bg-background p-4 text-sm sm:grid-cols-3">
+                  <span>إجمالي الفاتورة <b className="mt-1 block">{formatCurrency(totals.invoiceTotal)}</b></span>
+                  <span>الدفعة الأولية <b className="mt-1 block text-success">{formatCurrency(initialPayment.mode === "paid" ? totals.invoiceTotal : initialPayment.mode === "partial" ? Number(initialPayment.amount) || 0 : 0)}</b></span>
+                  <span>المتبقي بعد الدفعة <b className="mt-1 block">{formatCurrency(initialPayment.mode === "paid" ? 0 : initialPayment.mode === "partial" ? Math.max(0, totals.invoiceTotal - (Number(initialPayment.amount) || 0)) : totals.invoiceTotal)}</b></span>
+                </div>
+              </div>
+            </details>
+          )}
         </div>
         <InvoiceSummary calculations={totals} deliveryFee={Number(form.deliveryFee) || 0} />
       </div>
       <div className="grid gap-3 sm:flex sm:flex-wrap">
         <Button type="submit" size="lg" disabled={saving}>{saving ? "جارٍ الحفظ..." : mode === "edit" ? "تحديث الفاتورة" : "حفظ الفاتورة"}</Button>
-        <Button type="button" variant="outline" size="lg" onClick={() => { setForm(initialForm()); setErrors({}); }}>مسح الحقول</Button>
+        <Button type="button" variant="outline" size="lg" onClick={() => { setForm(initialForm()); setInitialPayment({ mode: "none", amount: "", paymentMethod: "cash", reference: "" }); setErrors({}); }}>مسح الحقول</Button>
         <Link href="/reports" className="contents sm:block"><Button type="button" variant="ghost" size="lg" className="w-full">العودة للتقارير</Button></Link>
       </div>
     </form>

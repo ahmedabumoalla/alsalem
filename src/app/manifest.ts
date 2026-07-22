@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "FoamSales | مبيعات الفلين",
     short_name: "FoamSales",
     description: "إدارة مبيعات الفلين والفواتير والتكاليف والعملاء",
-    start_url: "/",
+    start_url: "/sales/new",
     scope: "/",
     display: "standalone",
     background_color: "#F7F8F5",

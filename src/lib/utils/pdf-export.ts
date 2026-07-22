@@ -48,9 +48,9 @@ export const GENERAL_REPORT_PREVIEW_LIMIT = 10;
 export const PDF_TABLE_HEADERS = [
   "التاريخ",
   "العميل / القياسات",
-  "سعر البيع (ر.س)",
-  "سعر التكلفة (ر.س)",
-  "الفائدة (ر.س)",
+  "سعر البيع",
+  "سعر التكلفة",
+  "الفائدة",
   "البائع",
 ] as const;
 
@@ -69,16 +69,12 @@ export class PdfExportError extends Error {
   }
 }
 
-const LRI = "\u2066";
-const RLI = "\u2067";
-const PDI = "\u2069";
-
 export function isolateLtr(value: string | number): string {
-  return `${LRI}${value}${PDI}`;
+  return String(value);
 }
 
 export function isolateRtl(value: string): string {
-  return `${RLI}${value}${PDI}`;
+  return value;
 }
 
 export function formatPdfNumber(value: number, digits = 2): string {
@@ -150,6 +146,44 @@ function registerFonts(doc: JsPdfDocument, fonts: PdfFontData) {
   doc.addFont("Tajawal-Bold.ttf", "Tajawal", "bold");
   doc.setFont("Tajawal", "normal");
   doc.setR2L(false);
+
+  const eventBus = doc.internal.events as typeof doc.internal.events & {
+    getTopics: () => Record<string, Record<string, [unknown, boolean]>>;
+    unsubscribe: (token: string) => boolean;
+  };
+  const arabicProcessor = doc.processArabic as unknown;
+  for (const [token, [listener]] of Object.entries(eventBus.getTopics().preProcessText ?? {})) {
+    if (listener === arabicProcessor) eventBus.unsubscribe(token);
+  }
+}
+
+type PdfFontMetadata = {
+  cmap?: { unicode?: { codeMap?: Record<number, number> } };
+};
+
+export function prepareArabicPdfText(doc: JsPdfDocument, value: string): string {
+  const shaped = doc.processArabic(value);
+  const metadata = doc.getFont().metadata as PdfFontMetadata;
+  const codeMap = metadata.cmap?.unicode?.codeMap ?? {};
+  return Array.from(shaped, (character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+    const isArabicPresentationForm =
+      (codePoint >= 0xfb50 && codePoint <= 0xfdff) ||
+      (codePoint >= 0xfe70 && codePoint <= 0xfeff);
+    return isArabicPresentationForm && codeMap[codePoint] == null
+      ? character.normalize("NFKC")
+      : character;
+  }).join("");
+}
+
+function prepareRows(doc: JsPdfDocument, rows: RowInput[]): RowInput[] {
+  return rows.map((row) =>
+    Array.isArray(row)
+      ? row.map((cell) =>
+          typeof cell === "string" ? prepareArabicPdfText(doc, cell) : cell,
+        )
+      : row,
+  );
 }
 
 export function getActivePdfFilterLabels(filters: PdfReportFilters): string[] {
@@ -268,13 +302,13 @@ function drawHeader(
   doc.setFont("Tajawal", "bold");
   doc.setFontSize(18);
   doc.setTextColor(...COLORS.white);
-  doc.text(title, right, 14, { align: "right" });
+  doc.text(prepareArabicPdfText(doc, title), right, 14, { align: "right" });
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   doc.text("FoamSales", PDF_LAYOUT.margin, 14, { align: "left" });
   doc.setFont("Tajawal", "normal");
   doc.setFontSize(9);
-  doc.text(`عدد الفواتير: ${isolateLtr(invoiceCount)}`, right, 23, {
+  doc.text(prepareArabicPdfText(doc, `عدد الفواتير: ${isolateLtr(invoiceCount)}`), right, 23, {
     align: "right",
   });
   doc.setFont("helvetica", "normal");
@@ -290,16 +324,17 @@ function drawHeader(
   doc.setTextColor(...COLORS.primary);
   doc.setFont("Tajawal", "normal");
   doc.text(
+    prepareArabicPdfText(doc,
     filters.dateFrom || filters.dateTo
       ? `النطاق: ${formatPdfDate(filters.dateFrom || "...")} - ${formatPdfDate(filters.dateTo || "...")}`
-      : "النطاق: جميع التواريخ",
+      : "النطاق: جميع التواريخ"),
     right,
     y,
     { align: "right" },
   );
   if (labels.length) {
     y += 7;
-    doc.text(labels.join("   |   "), right, y, { align: "right" });
+    doc.text(prepareArabicPdfText(doc, labels.join("   |   ")), right, y, { align: "right" });
   }
   return y + 8;
 }
@@ -316,9 +351,9 @@ function drawSummaryCards(
   const cardWidth =
     (width - PDF_LAYOUT.margin * 2 - gap * (columns - 1)) / columns;
   const cards: [string, string][] = [
-    ["إجمالي المبيعات (ر.س)", isolateLtr(formatPdfNumber(summary.totalSales))],
-    ["إجمالي التكلفة (ر.س)", isolateLtr(formatPdfNumber(summary.totalCost))],
-    ["إجمالي الربح (ر.س)", isolateLtr(formatPdfNumber(summary.totalProfit))],
+    ["إجمالي المبيعات", isolateLtr(formatPdfNumber(summary.totalSales))],
+    ["إجمالي التكلفة", isolateLtr(formatPdfNumber(summary.totalCost))],
+    ["إجمالي الربح", isolateLtr(formatPdfNumber(summary.totalProfit))],
     ["عدد الفواتير", isolateLtr(summary.invoiceCount)],
   ];
   if (!compact) {
@@ -326,7 +361,7 @@ function drawSummaryCards(
       ["هامش الفائدة", `${isolateLtr(formatPdfNumber(summary.averageProfitMargin))}%`],
       ["عدد الأصناف", isolateLtr(summary.itemCount)],
       ["إجمالي الكمية", isolateLtr(summary.totalQuantity)],
-      ["متوسط الفاتورة (ر.س)", isolateLtr(formatPdfNumber(summary.averageInvoiceValue))],
+      ["متوسط الفاتورة", isolateLtr(formatPdfNumber(summary.averageInvoiceValue))],
     );
   }
 
@@ -344,7 +379,7 @@ function drawSummaryCards(
     doc.setFont("Tajawal", "normal");
     doc.setFontSize(8);
     doc.setTextColor(...COLORS.muted);
-    doc.text(label, x + cardWidth - 3, y + 7, { align: "right" });
+    doc.text(prepareArabicPdfText(doc, label), x + cardWidth - 3, y + 7, { align: "right" });
     doc.setFont("Tajawal", "bold");
     doc.setFontSize(11);
     doc.setTextColor(...COLORS.primary);
@@ -369,7 +404,14 @@ function drawFooters(doc: JsPdfDocument, generatedAt: Date) {
     doc.setFont("Tajawal", "normal");
     doc.setFontSize(8);
     doc.setTextColor(...COLORS.muted);
-    doc.text("تم إنشاء التقرير من نظام FoamSales", width - PDF_LAYOUT.margin, height - 6, {
+    const footerArabic = prepareArabicPdfText(doc, "تم إنشاء التقرير من نظام");
+    const footerRight = width - PDF_LAYOUT.margin;
+    doc.text(footerArabic, footerRight, height - 6, {
+      align: "right",
+    });
+    const footerArabicWidth = doc.getTextWidth(footerArabic);
+    doc.setFont("helvetica", "normal");
+    doc.text("FoamSales", footerRight - footerArabicWidth - 1.5, height - 6, {
       align: "right",
     });
     doc.setFont("helvetica", "normal");
@@ -437,12 +479,12 @@ export async function createPdfReportDocument(
       : options.invoices;
   autoTable(doc, {
     startY: y,
-    head: [PDF_TABLE_HEADERS.slice().reverse()],
-    body: createPdfTableRows(source),
-    foot: createPdfTableFoot(
+    head: prepareRows(doc, [PDF_TABLE_HEADERS.slice().reverse()]),
+    body: prepareRows(doc, createPdfTableRows(source)),
+    foot: prepareRows(doc, createPdfTableFoot(
       createPdfTableTotals(source),
       type === "general" ? "إجمالي العينة" : "الإجمالي",
-    ),
+    )),
     showHead: "everyPage",
     showFoot: "lastPage",
     margin: {
@@ -502,7 +544,7 @@ export async function createPdfReportDocument(
     doc.setFontSize(12);
     doc.setTextColor(...COLORS.primary);
     doc.text(
-      "تفاصيل الإجماليات حسب البائع",
+      prepareArabicPdfText(doc, "تفاصيل الإجماليات حسب البائع"),
       doc.internal.pageSize.getWidth() - PDF_LAYOUT.margin,
       sellerTitleY,
       { align: "right" },
@@ -518,8 +560,8 @@ export async function createPdfReportDocument(
     );
     autoTable(doc, {
       startY: sellerTitleY + 4,
-      head: [["البائع", "إجمالي المبيعات", "إجمالي التكلفة", "إجمالي الربح"].reverse()],
-      body: sellerRows,
+      head: prepareRows(doc, [["البائع", "إجمالي المبيعات", "إجمالي التكلفة", "إجمالي الربح"].reverse()]),
+      body: prepareRows(doc, sellerRows),
       showHead: "everyPage",
       margin: {
         top: 62,

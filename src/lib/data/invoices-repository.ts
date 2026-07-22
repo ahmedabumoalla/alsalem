@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { Invoice } from "@/lib/types/invoice";
+import type { InitialPaymentInstruction, Invoice } from "@/lib/types/invoice";
 import type { Json } from "@/lib/supabase/database";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { toDataAccessError } from "@/lib/data/errors";
@@ -57,11 +57,26 @@ function invoiceRpcPayload(invoice: Invoice): { p_invoice: Json; p_items: Json }
   };
 }
 
-export async function createInvoiceRecord(invoice: Invoice): Promise<Invoice> {
+export async function createInvoiceRecord(
+  invoice: Invoice,
+  initialPayment: InitialPaymentInstruction = { mode: "none" },
+): Promise<Invoice> {
   const client = getSupabaseServerClient();
-  const { data, error } = await client.rpc("create_invoice_with_items", invoiceRpcPayload(invoice));
-  if (error) throw toDataAccessError(error, "تعذر إنشاء الفاتورة.");
-  return mapInvoice(data as unknown as InvoiceJoinedRow);
+  const payload = invoiceRpcPayload(invoice);
+  const { data, error } = await client.rpc("create_invoice_with_initial_payment", {
+    ...payload,
+    p_initial_payment: initialPayment as unknown as Json,
+  });
+  if (error) {
+    throw toDataAccessError(
+      error,
+      initialPayment.mode === "partial" || initialPayment.mode === "paid"
+        ? "تعذر حفظ الفاتورة والدفعة، ولم يتم تسجيل أي بيانات."
+        : "تعذر إنشاء الفاتورة.",
+    );
+  }
+  const result = data as unknown as { invoice: InvoiceJoinedRow };
+  return mapInvoice(result.invoice);
 }
 
 export async function updateInvoiceRecord(id: string, invoice: Invoice): Promise<Invoice> {

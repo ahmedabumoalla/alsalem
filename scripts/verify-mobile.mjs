@@ -3,10 +3,12 @@ import { spawn } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
+  mkdtempSync,
   readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { tmpdir } from "node:os";
 import { basename, isAbsolute, join, resolve, sep } from "node:path";
 
 const chromeCandidates = [
@@ -17,11 +19,9 @@ const chrome = chromeCandidates.find(existsSync);
 if (!chrome)
   throw new Error("Chrome or Edge is required for the mobile browser check");
 
-const workspace = resolve(".");
-const tempRoot = resolve(workspace, "tmp");
-const profile = resolve(tempRoot, `mobile-cdp-${Date.now()}`);
-assert.ok(isAbsolute(profile) && profile.startsWith(`${tempRoot}${sep}`));
-mkdirSync(profile, { recursive: true });
+const systemTemp = resolve(tmpdir());
+const profile = mkdtempSync(join(systemTemp, "foamsales-mobile-cdp-"));
+assert.ok(isAbsolute(profile) && profile.startsWith(`${systemTemp}${sep}`));
 
 const browserProcess = spawn(
   chrome,
@@ -86,7 +86,7 @@ const outputDirectory = process.env.MOBILE_TEST_OUTPUT
 if (outputDirectory) mkdirSync(outputDirectory, { recursive: true });
 const cases = [
   { width: 320, path: "/", name: "home" },
-  { width: 375, path: "/sales/new", name: "sale-new" },
+  { width: 320, path: "/sales/new", name: "sale-new" },
   { width: 390, path: "/sales/missing/edit", name: "sale-edit" },
   { width: 390, path: "/reports", name: "reports" },
   { width: 430, path: "/reports/customer-balances", name: "balances" },
@@ -110,12 +110,22 @@ for (const testCase of cases) {
   await command("Page.navigate", {
     url: `http://localhost:3100${testCase.path}`,
   });
-  for (let attempt = 0; attempt < 60; attempt += 1) {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
     const state = await command("Runtime.evaluate", {
-      expression: "document.readyState",
+      expression: `JSON.stringify({
+        ready: document.readyState,
+        path: location.pathname,
+        hasText: document.body.innerText.trim().length > 0
+      })`,
       returnByValue: true,
     });
-    if (state.result.value === "complete") break;
+    if (typeof state.result.value !== "string") {
+      await sleep(50);
+      continue;
+    }
+    const navigationState = JSON.parse(state.result.value);
+    const expectedPath = testCase.path === "/" ? "/sales/new" : testCase.path;
+    if (navigationState.ready === "complete" && navigationState.path === expectedPath && navigationState.hasText) break;
     await sleep(50);
   }
   await sleep(500);
@@ -153,6 +163,79 @@ for (const testCase of cases) {
       Buffer.from(shot.data, "base64"),
     );
   }
+}
+
+await command("Emulation.setDeviceMetricsOverride", {
+  width: 320,
+  height: 900,
+  deviceScaleFactor: 1,
+  mobile: true,
+  screenWidth: 320,
+  screenHeight: 900,
+});
+await command("Page.navigate", { url: "http://localhost:3100/sales/new" });
+for (let attempt = 0; attempt < 200; attempt += 1) {
+  const ready = await command("Runtime.evaluate", {
+    expression: `location.pathname === "/sales/new" && document.readyState === "complete" && Boolean(document.querySelector("details"))`,
+    returnByValue: true,
+  });
+  if (ready.result.value === true) break;
+  await sleep(50);
+}
+await sleep(300);
+const paymentSection = await command("Runtime.evaluate", {
+  expression: `(() => {
+    const details = document.querySelector("details");
+    if (!details) return { error: "missing payment details" };
+    details.open = true;
+    const label = [...document.querySelectorAll("label")].find((item) => item.textContent.includes("حالة السداد"));
+    const select = label ? document.getElementById(label.htmlFor) : null;
+    if (!select) return { error: "missing payment mode" };
+    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value").set.call(select, "partial");
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    return { options: [...select.options].map((option) => option.textContent) };
+  })()`,
+  returnByValue: true,
+});
+assert.equal(paymentSection.result.value.error, undefined, paymentSection.result.value.error);
+assert.deepEqual(paymentSection.result.value.options, [
+  "بدون تسجيل دفعة",
+  "آجل",
+  "مدفوع جزئيًا",
+  "مدفوع بالكامل",
+]);
+await sleep(300);
+const paymentMobileMetrics = await command("Runtime.evaluate", {
+  expression: `(() => {
+    const label = [...document.querySelectorAll("label")].find((item) => item.textContent.includes("المبلغ المدفوع"));
+    const input = label ? document.getElementById(label.htmlFor) : null;
+    return {
+      documentWidth: document.documentElement.scrollWidth,
+      inputWidth: input?.getBoundingClientRect().width ?? 0,
+      parentWidth: input?.parentElement?.getBoundingClientRect().width ?? 0,
+      summaries: document.body.innerText.includes("إجمالي الفاتورة") && document.body.innerText.includes("المتبقي بعد الدفعة"),
+    };
+  })()`,
+  returnByValue: true,
+});
+assert.ok(paymentMobileMetrics.result.value.documentWidth <= 320);
+assert.ok(paymentMobileMetrics.result.value.inputWidth > 0);
+assert.equal(paymentMobileMetrics.result.value.inputWidth, paymentMobileMetrics.result.value.parentWidth);
+assert.equal(paymentMobileMetrics.result.value.summaries, true);
+if (outputDirectory) {
+  await command("Runtime.evaluate", {
+    expression: `document.querySelector("details")?.scrollIntoView({ block: "start" })`,
+  });
+  await sleep(200);
+  const paymentShot = await command("Page.captureScreenshot", {
+    format: "png",
+    captureBeyondViewport: false,
+    fromSurface: true,
+  });
+  writeFileSync(
+    join(outputDirectory, "320-initial-payment.png"),
+    Buffer.from(paymentShot.data, "base64"),
+  );
 }
 
 if (process.env.RUN_LIVE_SUPABASE_UI_TESTS === "1") {
@@ -297,7 +380,14 @@ console.log(JSON.stringify(results, null, 2));
 console.log(
   "✓ Mobile widths, required routes and active service worker verified",
 );
+const browserExited = new Promise((resolvePromise) => {
+  browserProcess.once("exit", resolvePromise);
+});
+try {
+  await command("Browser.close");
+} catch {
+  browserProcess.kill();
+}
+await Promise.race([browserExited, sleep(5000)]);
 socket.close();
-browserProcess.kill();
-await sleep(200);
-rmSync(profile, { recursive: true, force: true });
+rmSync(profile, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });

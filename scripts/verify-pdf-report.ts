@@ -51,7 +51,7 @@ async function verify() {
   const invoices = Array.from({ length: 140 }, (_, index) => createInvoice(index + 1));
   const totals = createPdfTableTotals(invoices);
   const generatedAt = new Date("2026-07-22T09:30:00Z");
-  const filters = { dateFrom: "2026-01-01", dateTo: "2026-07-31", sellerName: "", customerName: "", densityPressure: "" };
+  const filters = { query: "", dateFrom: "2026-01-01", dateTo: "2026-07-31", sellerName: "", customerName: "", densityPressure: "" };
   const invoiceOptions: PdfInvoicesExportOptions = { invoices, filters, generatedAt };
   const generalOptions: PdfGeneralExportOptions = { ...invoiceOptions, summary: { totalSales: 41586.75, totalCost: 34736.74, totalProfit: 6850.01, invoiceCount: invoices.length, itemCount: totals.totalItems, totalQuantity: totals.totalQuantity, averageInvoiceValue: 41586.75 / invoices.length, averageProfitMargin: 6850.01 / 41586.75 * 100 } };
 

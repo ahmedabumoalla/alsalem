@@ -11,7 +11,11 @@ import {
   calculateCustomerBalances,
   validateReceiptAmount,
 } from "../src/lib/utils/customer-accounting";
-import { buildInvoicesCsv, CSV_REPORT_HEADERS } from "../src/lib/utils/csv-export";
+import { strFromU8, unzipSync } from "fflate";
+import {
+  buildInvoicesWorkbook,
+  EXCEL_SHEET_NAMES,
+} from "../src/lib/utils/excel-export";
 import { normalizePhone } from "../src/lib/utils/contact";
 import {
   calculateFinancialTotals,
@@ -20,17 +24,23 @@ import {
 } from "../src/lib/utils/invoice-report";
 import type { Invoice } from "../src/lib/types/invoice";
 
-const full = calculateUnitCost(200, 100, 120, 400);
-const half = calculateUnitCost(200, 50, 120, 400);
+const full = calculateUnitCost(200, 400, 120, 100);
+const half = calculateUnitCost(200, 400, 120, 50);
 assert.equal(full, 200);
 assert.equal(half, 100);
-assert.throws(() => calculateUnitCost(Infinity, 100, 120, 400));
-assert.throws(() => calculateUnitCost(200, 0, 120, 400));
+assert.equal(calculateUnitCost(718, 200, 40, 20), 23.93);
+assert.equal(calculateUnitCost(718, 200, 40, 19), 23.93);
+assert.equal(calculateUnitCost(480, 300, 20, 10), 8);
+assert.throws(() => calculateUnitCost(Infinity, 400, 120, 100));
+assert.throws(() => calculateUnitCost(200, 400, 120, 0));
+assert.throws(() => calculateUnitCost(200, 401, 120, 100));
+assert.throws(() => calculateUnitCost(200, 400, 121, 100));
+assert.throws(() => calculateUnitCost(200, 400, 120, 101));
 
-const automatic = calculateInvoiceItem({ id: "1", lengthCm: 50, widthCm: 120, heightCm: 400, densityPressure: 8, quantity: 3, unitSalePrice: 150, standardBlockCost: 200 });
+const automatic = calculateInvoiceItem({ id: "1", lengthCm: 400, widthCm: 120, heightCm: 50, densityPressure: 8, quantity: 3, unitSalePrice: 150, standardBlockCost: 200 });
 assert.equal(automatic.costSource, "auto");
 assert.equal(automatic.totalCost, 300);
-const manual = calculateInvoiceItem({ id: "2", lengthCm: 100, widthCm: 120, heightCm: 400, densityPressure: 8, quantity: 2, unitSalePrice: 350, standardBlockCost: 200, unitCost: 125.25, costSource: "manual" });
+const manual = calculateInvoiceItem({ id: "2", lengthCm: 400, widthCm: 120, heightCm: 100, densityPressure: 8, quantity: 2, unitSalePrice: 350, standardBlockCost: 200, unitCost: 125.25, costSource: "manual" });
 assert.equal(manual.totalCost, 250.5);
 assert.equal(manual.netProfit, 449.5);
 const manualAfterDimensionChange = calculateInvoiceItem({ id: "2", lengthCm: 25, widthCm: 40, heightCm: 50, densityPressure: 8, quantity: 2, unitSalePrice: 350, standardBlockCost: 200, unitCost: 125.25, costSource: "manual" });
@@ -80,14 +90,18 @@ assert.equal(sellers[0].sellerName, "سالم علي");
 assert.equal(sellers[0].invoiceCount, 2);
 assert.deepEqual(calculateFinancialTotals([migrated, invoice2]), { totalSales: 200, totalCost: 80, totalProfit: 130 });
 
-const csv = buildInvoicesCsv([migrated, invoice2]);
-assert.equal(csv.split("\n")[0], CSV_REPORT_HEADERS.join(","));
-assert.ok(csv.includes("الإجماليات"));
-assert.ok(csv.includes("تفصيل البائعين"));
-for (const forbidden of ["رقم الفاتورة", "حالة السداد", "رقم التواصل", "وصف قديم", "0555-000-111"]) {
-  assert.ok(!csv.includes(forbidden), `CSV must not include ${forbidden}`);
+const workbook = buildInvoicesWorkbook([migrated, invoice2]);
+assert.equal(strFromU8(workbook.subarray(0, 2)), "PK");
+const workbookFiles = unzipSync(workbook);
+const workbookXml = strFromU8(workbookFiles["xl/workbook.xml"]);
+const invoicesSheetXml = strFromU8(workbookFiles["xl/worksheets/sheet1.xml"]);
+for (const sheetName of EXCEL_SHEET_NAMES) assert.ok(workbookXml.includes(sheetName));
+assert.ok(invoicesSheetXml.includes("رقم الفاتورة"));
+assert.ok(invoicesSheetXml.includes("مصدر التكلفة"));
+for (const forbidden of ["حالة السداد", "رقم التواصل", "وصف قديم", "0555-000-111"]) {
+  assert.ok(!invoicesSheetXml.includes(forbidden), `Excel must not include ${forbidden}`);
 }
-console.log("✓ Accounting: auto/manual cost, totals, migration, phones, balances, report and CSV verified");
+console.log("✓ Accounting: waste-loaded cost, manual override, totals, reports and real Excel verified");
 
 async function verifyStorageMigration() {
   const memory = new Map<string, string>();

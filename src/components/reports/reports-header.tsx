@@ -2,107 +2,84 @@
 
 import Link from "next/link";
 import {
-  ChartColumn,
-  Download,
-  FileText,
+  FileSpreadsheet,
   Files,
+  Filter,
   LoaderCircle,
   Plus,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatInvoiceCount } from "@/lib/utils/format";
 
 interface ReportsHeaderProps {
   filteredCount: number;
-  onExportCsv: () => void;
-  onExportGeneralPdf: () => void;
-  onExportInvoicesPdf: () => void;
-  csvExportDisabled: boolean;
-  isGeneralPdfExporting: boolean;
+  query: string;
+  onQueryChange: (value: string) => void;
+  onOpenFilters: () => void;
+  onExportExcel: () => Promise<void>;
+  onExportInvoicesPdf: () => Promise<void>;
+  exportDisabled: boolean;
+  isExcelExporting: boolean;
   isInvoicesPdfExporting: boolean;
-  pdfExportBusy: boolean;
 }
 
 export function ReportsHeader({
   filteredCount,
-  onExportCsv,
-  onExportGeneralPdf,
+  query,
+  onQueryChange,
+  onOpenFilters,
+  onExportExcel,
   onExportInvoicesPdf,
-  csvExportDisabled,
-  isGeneralPdfExporting,
+  exportDisabled,
+  isExcelExporting,
   isInvoicesPdfExporting,
-  pdfExportBusy,
 }: ReportsHeaderProps) {
+  const exportBusy = isExcelExporting || isInvoicesPdfExporting;
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
-      <div className="absolute -left-12 -top-12 h-40 w-40 rounded-full bg-primary/5" />
-      <div className="absolute -bottom-8 -right-8 h-32 w-32 rounded-full bg-secondary/5" />
-      <div className="absolute left-1/2 top-0 h-px w-3/4 -translate-x-1/2 bg-gradient-to-r from-transparent via-border to-transparent" />
-
-      <div className="relative flex flex-wrap items-start justify-between gap-6 p-6 sm:p-8">
-        <div className="space-y-3">
+    <header className="space-y-5 border-b border-border pb-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-extrabold text-primary sm:text-3xl">
-              تقارير المبيعات والأرباح
-            </h1>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-secondary/20 bg-secondary/5 px-3 py-1 text-xs font-medium text-secondary">
-              <FileText className="h-3.5 w-3.5" />
+            <h1 className="text-2xl font-extrabold text-primary sm:text-3xl">تقارير المبيعات والأرباح</h1>
+            <span className="rounded-full bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
               {formatInvoiceCount(filteredCount)}
             </span>
           </div>
-          <p className="max-w-xl text-sm text-muted sm:text-base">
-            نظرة تحليلية متكاملة على حركة المبيعات والتكاليف والأرباح.
-          </p>
+          <p className="mt-2 text-sm text-muted">سجل الفواتير أولًا، ثم ملخصات المبيعات والتكلفة والربح.</p>
         </div>
 
-        <div className="grid w-full gap-3 min-[390px]:grid-cols-2 lg:w-auto">
+        <div className="flex flex-wrap gap-2">
           <Link href="/sales/new">
-            <Button size="md">
-              <Plus className="h-4 w-4" />
-              فاتورة جديدة
-            </Button>
+            <Button><Plus className="h-4 w-4" />فاتورة جديدة</Button>
           </Link>
-          <Button
-            variant="outline"
-            size="md"
-            onClick={onExportCsv}
-            disabled={csvExportDisabled}
-          >
-            <Download className="h-4 w-4" />
-            تصدير CSV
+          <Button variant="outline" onClick={() => void onExportExcel()} disabled={exportDisabled || exportBusy}>
+            {isExcelExporting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
+            تصدير Excel
           </Button>
-          <Button
-            variant="secondary"
-            size="md"
-            onClick={onExportGeneralPdf}
-            disabled={pdfExportBusy}
-            aria-busy={isGeneralPdfExporting}
-          >
-            {isGeneralPdfExporting ? (
-              <LoaderCircle className="h-4 w-4 animate-spin" />
-            ) : (
-              <ChartColumn className="h-4 w-4" />
-            )}
-            {isGeneralPdfExporting ? "جارٍ إنشاء العام..." : "PDF تقرير عام"}
-          </Button>
-          <Button
-            variant="outline"
-            size="md"
-            onClick={onExportInvoicesPdf}
-            disabled={pdfExportBusy}
-            aria-busy={isInvoicesPdfExporting}
-          >
-            {isInvoicesPdfExporting ? (
-              <LoaderCircle className="h-4 w-4 animate-spin" />
-            ) : (
-              <Files className="h-4 w-4" />
-            )}
-            {isInvoicesPdfExporting
-              ? "جارٍ إنشاء الفواتير..."
-              : "PDF تقرير الفواتير"}
+          <Button variant="outline" onClick={() => void onExportInvoicesPdf()} disabled={exportDisabled || exportBusy}>
+            {isInvoicesPdfExporting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Files className="h-4 w-4" />}
+            PDF تقرير الفواتير
           </Button>
         </div>
       </div>
-    </div>
+
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <label className="relative min-w-0 flex-1">
+          <span className="sr-only">بحث في الفواتير</span>
+          <Search className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => onQueryChange(event.target.value)}
+            placeholder="ابحث برقم الفاتورة أو العميل أو البائع"
+            className="h-11 w-full rounded-xl border border-border bg-card pr-11 pl-4 text-sm outline-none transition focus:border-secondary focus:ring-2 focus:ring-secondary/15"
+          />
+        </label>
+        <Button variant="outline" onClick={onOpenFilters}>
+          <Filter className="h-4 w-4" />الفلاتر
+        </Button>
+      </div>
+    </header>
   );
 }

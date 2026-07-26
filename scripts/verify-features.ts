@@ -39,6 +39,30 @@ const lengthField = invoiceForm.indexOf('label="الطول (سم)"');
 assert.ok(heightField >= 0 && heightField < widthField && widthField < lengthField);
 assert.match(invoiceForm, /!existingInvoice && \(/);
 assert.match(invoiceForm, /تسجيل دفعة أولية - اختياري/);
+assert.match(invoiceForm, /تشمل هدر القص/);
+
+const reportsPage = readFileSync(resolve("src/app/reports/page.tsx"), "utf8");
+const invoiceSection = reportsPage.indexOf('id="invoices"');
+const summariesSection = reportsPage.indexOf("تقارير المبيعات والأرباح", invoiceSection);
+assert.ok(invoiceSection >= 0 && summariesSection > invoiceSection, "invoice register must appear before summaries");
+assert.ok(!reportsPage.includes("SalesCharts"));
+assert.ok(!reportsPage.includes("exportGeneralReportPdf"));
+assert.ok(!reportsPage.includes("exportInvoicesToCsv"));
+assert.match(reportsPage, /exportInvoicesToExcel/);
+
+const reportsHeader = readFileSync(resolve("src/components/reports/reports-header.tsx"), "utf8");
+assert.match(reportsHeader, /type="search"/);
+assert.match(reportsHeader, /onOpenFilters/);
+assert.match(reportsHeader, /تصدير Excel/);
+assert.ok(!reportsHeader.includes("PDF تقرير عام"));
+assert.ok(!reportsHeader.includes("CSV"));
+
+const reportFilters = readFileSync(resolve("src/components/reports/report-filters.tsx"), "utf8");
+assert.match(reportFilters, /<Modal/);
+for (const action of ["تطبيق", "إعادة ضبط", "إغلاق"]) assert.ok(reportFilters.includes(action));
+
+assert.ok(!existsSync(resolve("src/components/reports/sales-charts.tsx")));
+assert.ok(!existsSync(resolve("src/lib/utils/csv-export.ts")));
 
 const migration = readFileSync(resolve("supabase/migrations/001_initial_schema.sql"), "utf8");
 const tables = ["pressure_costs", "customers", "invoices", "invoice_items", "customer_receipts", "leads", "audit_logs", "app_meta"];

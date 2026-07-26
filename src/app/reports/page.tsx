@@ -6,10 +6,8 @@ import { InvoicesTable } from "@/components/reports/invoices-table";
 import { ReportFilters } from "@/components/reports/report-filters";
 import { ReportsHeader } from "@/components/reports/reports-header";
 import { ReportStatCards } from "@/components/reports/report-stat-cards";
-import { SalesCharts } from "@/components/reports/sales-charts";
 import { useToast } from "@/components/ui/toast-provider";
 import { useInvoices } from "@/lib/hooks/use-invoices";
-import { exportInvoicesToCsv } from "@/lib/utils/csv-export";
 import {
   calculateStats,
   defaultFilters,
@@ -17,50 +15,116 @@ import {
   getUniqueCustomers,
   getUniquePressures,
   getUniqueSellers,
+  hasActiveFilters,
   type InvoiceFilters,
 } from "@/lib/utils/invoice-filters";
-import type { PdfReportSummary, PdfReportType } from "@/lib/utils/pdf-export";
 
 export default function ReportsPage() {
   const invoices = useInvoices();
   const { showToast } = useToast();
   const [filters, setFilters] = useState<InvoiceFilters>(defaultFilters);
-  const [activePdfExport, setActivePdfExport] = useState<PdfReportType | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [activeExport, setActiveExport] = useState<"excel" | "pdf" | null>(null);
+
   const filteredInvoices = useMemo(() => filterInvoices(invoices, filters), [invoices, filters]);
   const stats = useMemo(() => calculateStats(filteredInvoices), [filteredInvoices]);
-  const pdfSummary = useMemo<PdfReportSummary>(() => stats, [stats]);
   const sellers = useMemo(() => getUniqueSellers(invoices), [invoices]);
   const customers = useMemo(() => getUniqueCustomers(invoices), [invoices]);
   const pressures = useMemo(() => getUniquePressures(invoices), [invoices]);
 
-  const handleExportPdf = async (type: PdfReportType) => {
-    if (activePdfExport) return;
-    if (filteredInvoices.length === 0) {
-      showToast("لا توجد فواتير مطابقة للفلاتر الحالية.", "error");
-      return;
-    }
-    setActivePdfExport(type);
+  async function handleExportExcel() {
+    if (activeExport || filteredInvoices.length === 0) return;
+    setActiveExport("excel");
     try {
-      const { exportGeneralReportPdf, exportInvoicesReportPdf } = await import("@/lib/utils/pdf-export");
-      const baseOptions = { invoices: filteredInvoices, filters, generatedAt: new Date() };
-      if (type === "general") {
-        await exportGeneralReportPdf({ ...baseOptions, summary: pdfSummary });
-        showToast("تم تصدير التقرير العام بنجاح.");
-      } else {
-        await exportInvoicesReportPdf(baseOptions);
-        showToast("تم تصدير تقرير الفواتير بنجاح.");
-      }
-    } catch (error) {
-      const message = error instanceof Error && error.name === "PdfExportError"
-        ? error.message
-        : type === "general"
-          ? "تعذر إنشاء التقرير العام. حاول مرة أخرى."
-          : "تعذر إنشاء تقرير الفواتير. حاول مرة أخرى.";
-      showToast(message, "error");
+      const { exportInvoicesToExcel } = await import("@/lib/utils/excel-export");
+      exportInvoicesToExcel(filteredInvoices);
+      showToast("تم تصدير ملف Excel بنجاح.");
+    } catch {
+      showToast("تعذر إنشاء ملف Excel. حاول مرة أخرى.", "error");
     } finally {
-      setActivePdfExport(null);
+      setActiveExport(null);
     }
-  };
+  }
 
-  return <div className="space-y-8"><ReportsHeader filteredCount={filteredInvoices.length} onExportCsv={() => exportInvoicesToCsv(filteredInvoices)} onExportGeneralPdf={() => handleExportPdf("general")} onExportInvoicesPdf={() => handleExportPdf("invoices")} csvExportDisabled={filteredInvoices.length === 0} isGeneralPdfExporting={activePdfExport === "general"} isInvoicesPdfExporting={activePdfExport === "invoices"} pdfExportBusy={activePdfExport !== null} /><ReportStatCards stats={stats} /><ReportFilters filters={filters} sellers={sellers} customers={customers} pressures={pressures} onChange={setFilters} onReset={() => setFilters(defaultFilters)} /><SalesCharts invoices={filteredInvoices} /><section id="invoices" className="scroll-mt-28 space-y-4"><div><h2 className="text-xl font-bold text-primary">سجل الفواتير</h2><p className="mt-1 text-sm text-muted">النتائج المفلترة وإجماليات المبيعات والتكلفة والفائدة حسب البائع.</p></div><InvoiceReportSummary invoices={filteredInvoices} /><InvoicesTable invoices={filteredInvoices} /></section></div>;
+  async function handleExportInvoicesPdf() {
+    if (activeExport || filteredInvoices.length === 0) return;
+    setActiveExport("pdf");
+    try {
+      const { exportInvoicesReportPdf } = await import("@/lib/utils/pdf-export");
+      await exportInvoicesReportPdf({
+        invoices: filteredInvoices,
+        filters,
+        generatedAt: new Date(),
+      });
+      showToast("تم تصدير تقرير الفواتير بنجاح.");
+    } catch (error) {
+      showToast(
+        error instanceof Error && error.name === "PdfExportError"
+          ? error.message
+          : "تعذر إنشاء تقرير الفواتير. حاول مرة أخرى.",
+        "error"
+      );
+    } finally {
+      setActiveExport(null);
+    }
+  }
+
+  const nonSearchFiltersActive = hasActiveFilters({ ...filters, query: "" });
+
+  return (
+    <div className="space-y-8">
+      <ReportsHeader
+        filteredCount={filteredInvoices.length}
+        query={filters.query}
+        onQueryChange={(query) => setFilters((current) => ({ ...current, query }))}
+        onOpenFilters={() => setFiltersOpen(true)}
+        onExportExcel={handleExportExcel}
+        onExportInvoicesPdf={handleExportInvoicesPdf}
+        exportDisabled={filteredInvoices.length === 0}
+        isExcelExporting={activeExport === "excel"}
+        isInvoicesPdfExporting={activeExport === "pdf"}
+      />
+
+      <section id="invoices" className="scroll-mt-28 space-y-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold text-primary">سجل الفواتير</h2>
+            <p className="mt-1 text-sm text-muted">النتائج المطابقة للبحث والفلاتر الحالية.</p>
+          </div>
+          {nonSearchFiltersActive && (
+            <button
+              type="button"
+              className="text-sm font-medium text-secondary hover:underline"
+              onClick={() => setFilters((current) => ({ ...defaultFilters, query: current.query }))}
+            >
+              مسح الفلاتر
+            </button>
+          )}
+        </div>
+        <InvoicesTable invoices={filteredInvoices} />
+      </section>
+
+      <section className="space-y-5 border-t border-border pt-8">
+        <div>
+          <h2 className="text-xl font-bold text-primary">تقارير المبيعات والأرباح</h2>
+          <p className="mt-1 text-sm text-muted">ملخص خفيف يتحدث وفق النتائج الظاهرة دون رسوم بيانية.</p>
+        </div>
+        <ReportStatCards stats={stats} />
+        <InvoiceReportSummary invoices={filteredInvoices} />
+      </section>
+
+      {filtersOpen && (
+        <ReportFilters
+          open
+          filters={filters}
+          sellers={sellers}
+          customers={customers}
+          pressures={pressures}
+          onApply={setFilters}
+          onClose={() => setFiltersOpen(false)}
+          onReset={() => setFilters((current) => ({ ...defaultFilters, query: current.query }))}
+        />
+      )}
+    </div>
+  );
 }

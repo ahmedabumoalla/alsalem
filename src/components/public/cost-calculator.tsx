@@ -1,6 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import {
+  calculateUnitCost,
+  STANDARD_BLOCK_HEIGHT_CM,
+  STANDARD_BLOCK_LENGTH_CM,
+  STANDARD_BLOCK_WIDTH_CM,
+} from "@/lib/utils/invoice-calculations";
 
 export type PublicPressureCost = {
   pressure: number;
@@ -23,12 +29,22 @@ export function CostCalculator({ costs }: { costs: PublicPressureCost[] }) {
   const selected = costs.find((item) => String(item.pressure) === pressure);
   const values = [height, width, length].map(Number);
   const valid = Boolean(selected) && values.every((value, index) => value > 0 && Number.isFinite(value) && [height, width, length][index].trim() !== "");
-  const result = useMemo(() => {
+  const result = useMemo<
+    { piecesPerBlock: number; cost: number } | { error: true } | null
+  >(() => {
     if (!valid || !selected) return null;
-    const itemVolume = values[0] * values[1] * values[2];
-    const standardVolume = selected.standardHeightCm * selected.standardWidthCm * selected.standardLengthCm;
-    const ratio = itemVolume / standardVolume;
-    return { itemVolume, standardVolume, ratio, cost: selected.standardBlockCost * ratio };
+    try {
+      const countByHeight = Math.floor(STANDARD_BLOCK_HEIGHT_CM / values[0]);
+      const countByWidth = Math.floor(STANDARD_BLOCK_WIDTH_CM / values[1]);
+      const countByLength = Math.floor(STANDARD_BLOCK_LENGTH_CM / values[2]);
+      const piecesPerBlock = countByHeight * countByWidth * countByLength;
+      return {
+        piecesPerBlock,
+        cost: calculateUnitCost(selected.standardBlockCost, values[2], values[1], values[0]),
+      };
+    } catch {
+      return { error: true as const };
+    }
   }, [valid, selected, height, width, length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function clear() {
@@ -61,15 +77,16 @@ export function CostCalculator({ costs }: { costs: PublicPressureCost[] }) {
         </div>
         <div className="flex min-h-64 flex-col justify-center rounded-2xl bg-primary p-6 text-white">
           <p className="text-sm text-white/75">تكلفة القطعة التقديرية</p>
-          <p className="mt-2 break-words text-3xl font-extrabold sm:text-4xl">{result ? currencyFormatter.format(result.cost) : "—"}</p>
-          {result ? (
+          <p className="mt-2 break-words text-3xl font-extrabold sm:text-4xl">{result && "cost" in result ? currencyFormatter.format(result.cost) : "—"}</p>
+          {result && "cost" in result ? (
             <dl className="mt-6 grid gap-3 text-sm">
               <div className="flex justify-between gap-3"><dt className="text-white/70">الضغط المحدد</dt><dd className="font-bold">{selected?.pressure}</dd></div>
-              <div className="flex justify-between gap-3"><dt className="text-white/70">حجم القطعة</dt><dd className="font-bold" dir="ltr">{numberFormatter.format(result.itemVolume)} سم³</dd></div>
-              <div className="flex justify-between gap-3"><dt className="text-white/70">نسبتها من البلك القياسي</dt><dd className="font-bold">{numberFormatter.format(result.ratio * 100)}٪</dd></div>
+              <div className="flex justify-between gap-3"><dt className="text-white/70">عدد القطع من البلك</dt><dd className="font-bold">{numberFormatter.format(result.piecesPerBlock)}</dd></div>
             </dl>
+          ) : result && "error" in result ? (
+            <p className="mt-5 rounded-xl bg-white/10 p-3 text-sm text-white">المقاس أكبر من البلك القياسي في أحد الأبعاد.</p>
           ) : <p className="mt-5 text-sm text-white/70">أدخل أرقامًا موجبة واختر الضغط لإظهار النتيجة.</p>}
-          <p className="mt-6 border-t border-white/15 pt-4 text-xs text-white/70">التكلفة تقديرية بناءً على آخر أسعار مركز التكلفة المسجلة.</p>
+          <p className="mt-6 border-t border-white/15 pt-4 text-xs text-white/70">التكلفة التلقائية تشمل الهدر الناتج من القص اعتمادًا على البلك القياسي 100×120×400.</p>
         </div>
       </section>
 

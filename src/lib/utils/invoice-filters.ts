@@ -3,6 +3,7 @@ import { hasRecordedCustomerName, normalizeSellerName } from "@/lib/utils/invoic
 import { normalizeCustomerName } from "@/lib/utils/customer-accounting";
 
 export interface InvoiceFilters {
+  query: string;
   dateFrom: string;
   dateTo: string;
   sellerName: string;
@@ -10,10 +11,17 @@ export interface InvoiceFilters {
   densityPressure: string;
 }
 
-export const defaultFilters: InvoiceFilters = { dateFrom: "", dateTo: "", sellerName: "", customerName: "", densityPressure: "" };
+export const defaultFilters: InvoiceFilters = { query: "", dateFrom: "", dateTo: "", sellerName: "", customerName: "", densityPressure: "" };
 export function hasActiveFilters(filters: InvoiceFilters): boolean { return Object.values(filters).some(Boolean); }
 export function filterInvoices(invoices: Invoice[], filters: InvoiceFilters): Invoice[] {
+  const query = filters.query.trim().toLocaleLowerCase("ar");
   return invoices.filter((invoice) =>
+    (!query || [
+      invoice.invoiceNumber,
+      invoice.customerName,
+      invoice.sellerName,
+      invoice.customerPhone ?? "",
+    ].some((value) => value.toLocaleLowerCase("ar").includes(query))) &&
     (!filters.dateFrom || invoice.invoiceDate >= filters.dateFrom) &&
     (!filters.dateTo || invoice.invoiceDate <= filters.dateTo) &&
     (!filters.sellerName || normalizeSellerName(invoice.sellerName) === filters.sellerName) &&

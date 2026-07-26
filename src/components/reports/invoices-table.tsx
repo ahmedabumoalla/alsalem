@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, FileText, Pencil, Trash2 } from "lucide-react";
 import { InvoiceDetailsModal } from "@/components/reports/invoice-details-modal";
@@ -18,7 +18,7 @@ export function InvoicesTable({ invoices }: { invoices: Invoice[] }) {
   const { showToast } = useToast();
   const [viewInvoice, setViewInvoice] = useState<Invoice | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Invoice | null>(null);
-  const rows = createInvoiceReportRows(invoices);
+  const rows = useMemo(() => createInvoiceReportRows(invoices), [invoices]);
 
   if (!invoices.length) {
     return (

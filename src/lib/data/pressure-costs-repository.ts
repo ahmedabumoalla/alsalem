@@ -16,9 +16,9 @@ export async function savePressureCostRecord(item: FoamPressureCost): Promise<Fo
     id: item.id,
     pressure: item.pressure,
     standard_block_cost: item.standardBlockCost,
-    standard_length_cm: 100,
-    standard_width_cm: 120,
-    standard_height_cm: 400,
+    standard_length_cm: item.standardLengthCm,
+    standard_width_cm: item.standardWidthCm,
+    standard_height_cm: item.standardHeightCm,
     created_at: item.createdAt,
     updated_at: item.updatedAt,
   }).select().single();

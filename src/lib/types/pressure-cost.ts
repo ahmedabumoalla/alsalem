@@ -2,6 +2,9 @@ export interface FoamPressureCost {
   id: string;
   pressure: number;
   standardBlockCost: number;
+  standardLengthCm: number;
+  standardWidthCm: number;
+  standardHeightCm: number;
   createdAt: string;
   updatedAt: string;
 }

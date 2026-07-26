@@ -60,6 +60,9 @@ export function mapPressureCost(row: PressureCostRow): FoamPressureCost {
     id: row.id,
     pressure: Number(row.pressure),
     standardBlockCost: Number(row.standard_block_cost),
+    standardLengthCm: Number(row.standard_length_cm),
+    standardWidthCm: Number(row.standard_width_cm),
+    standardHeightCm: Number(row.standard_height_cm),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

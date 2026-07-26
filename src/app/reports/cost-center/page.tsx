@@ -46,6 +46,9 @@ export default function CostCenterPage() {
         id: editing?.id ?? crypto.randomUUID(),
         pressure: Number(pressure),
         standardBlockCost: Number(cost),
+        standardLengthCm: editing?.standardLengthCm ?? 100,
+        standardWidthCm: editing?.standardWidthCm ?? 120,
+        standardHeightCm: editing?.standardHeightCm ?? 400,
         createdAt: editing?.createdAt ?? now,
         updatedAt: now,
       });

@@ -98,12 +98,16 @@ export function parsePressureCostInput(value: unknown): FoamPressureCost {
     id: typeof value.id === "string" ? value.id : "",
     pressure: Number(value.pressure),
     standardBlockCost: Number(value.standardBlockCost),
+    standardLengthCm: Number(value.standardLengthCm ?? 100),
+    standardWidthCm: Number(value.standardWidthCm ?? 120),
+    standardHeightCm: Number(value.standardHeightCm ?? 400),
     createdAt: typeof value.createdAt === "string" ? value.createdAt : new Date().toISOString(),
     updatedAt: typeof value.updatedAt === "string" ? value.updatedAt : new Date().toISOString(),
   };
   if (!item.id) throw new Error("معرف تكلفة الضغط مطلوب.");
   if (!Number.isFinite(item.pressure) || item.pressure <= 0) throw new Error("الضغط يجب أن يكون رقمًا أكبر من صفر.");
   if (!Number.isFinite(item.standardBlockCost) || item.standardBlockCost < 0) throw new Error("التكلفة يجب أن تكون صفرًا أو أكثر.");
+  if (![item.standardLengthCm, item.standardWidthCm, item.standardHeightCm].every((dimension) => Number.isFinite(dimension) && dimension > 0)) throw new Error("أبعاد البلك القياسي غير صالحة.");
   return item;
 }
 

@@ -5,6 +5,7 @@ import { ToastProvider } from "@/components/ui/toast-provider";
 import { PwaRegister } from "@/components/pwa/pwa-register";
 import { DataConnectionBanner } from "@/components/data/data-connection-banner";
 import { LocalDataMigration } from "@/components/data/local-data-migration";
+import { checkAuthorizedUser } from "@/lib/auth/require-authorized-user";
 import "./globals.css";
 
 const tajawal = Tajawal({
@@ -38,11 +39,13 @@ export const viewport: Viewport = {
   themeColor: "#183B36",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const auth = await checkAuthorizedUser();
+  const authenticated = auth.authorized;
   return (
     <html
       lang="ar"
@@ -52,9 +55,9 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col font-sans">
         <ToastProvider>
           <PwaRegister />
-          <AppHeader />
-          <DataConnectionBanner />
-          <LocalDataMigration />
+          <AppHeader authenticated={authenticated} />
+          {authenticated && <DataConnectionBanner />}
+          {authenticated && <LocalDataMigration />}
           <main className="flex-1">{children}</main>
         </ToastProvider>
       </body>

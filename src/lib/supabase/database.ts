@@ -117,6 +117,7 @@ export type AppMetaRow = {
   updated_at: string;
 }
 
+
 type TableDefinition<Row, Insert = Partial<Row>, Update = Partial<Insert>> = {
   Row: Row;
   Insert: Insert;

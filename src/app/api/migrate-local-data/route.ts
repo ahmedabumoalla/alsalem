@@ -1,5 +1,6 @@
 import { getLocalMigrationStatus, migrateLocalData, type LocalMigrationPayload } from "@/lib/data/local-migration";
 import { jsonData, jsonError, readJson } from "@/lib/api/route-utils";
+import { requireAuthorizedApiUser } from "@/lib/auth/require-authorized-user";
 
 export const dynamic = "force-dynamic";
 
@@ -11,5 +12,5 @@ function parsePayload(value: unknown): LocalMigrationPayload {
   return { importId: record.importId, invoices: array("invoices"), pressureCosts: array("pressureCosts"), receipts: array("receipts"), leads: array("leads") };
 }
 
-export async function GET() { try { return jsonData(await getLocalMigrationStatus()); } catch (error) { return jsonError(error); } }
-export async function POST(request: Request) { try { return jsonData(await migrateLocalData(parsePayload(await readJson(request)))); } catch (error) { return jsonError(error); } }
+export async function GET() { const denied = await requireAuthorizedApiUser(); if (denied) return denied; try { return jsonData(await getLocalMigrationStatus()); } catch (error) { return jsonError(error); } }
+export async function POST(request: Request) { const denied = await requireAuthorizedApiUser(); if (denied) return denied; try { return jsonData(await migrateLocalData(parsePayload(await readJson(request)))); } catch (error) { return jsonError(error); } }

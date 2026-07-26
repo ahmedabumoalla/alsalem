@@ -19,18 +19,18 @@ assert.deepEqual(filterLeads([normalized, second], { query: "سارة", source: 
 const pwaManifest = manifest();
 assert.equal(pwaManifest.short_name, "FoamSales");
 assert.equal(pwaManifest.display, "standalone");
-assert.equal(pwaManifest.start_url, "/sales/new");
+assert.equal(pwaManifest.start_url, "/");
 assert.equal(pwaManifest.scope, "/");
 for (const file of ["public/sw.js", "public/offline.html", "public/icons/icon-192.png", "public/icons/icon-512.png", "public/icons/icon-maskable-512.png", "public/apple-touch-icon.png"]) assert.ok(existsSync(resolve(file)), `${file} must exist`);
 const serviceWorker = readFileSync(resolve("public/sw.js"), "utf8");
 assert.match(serviceWorker, /pathname\.startsWith\("\/api\/"\)/);
 assert.ok(!serviceWorker.includes("foam_sales_invoices"));
 const rootPage = readFileSync(resolve("src/app/page.tsx"), "utf8");
-assert.match(rootPage, /redirect\("\/sales\/new"\)/);
+assert.match(rootPage, /CostCalculator/);
 assert.ok(!rootPage.includes("HeroSection"));
 const header = readFileSync(resolve("src/components/layout/app-header.tsx"), "utf8");
-assert.match(header, /<Link href="\/sales\/new" className="group/);
-assert.ok(!header.includes('{ href: "/",'));
+assert.match(header, /authenticated/);
+assert.ok(header.includes("حاسبة التكلفة"));
 
 const invoiceForm = readFileSync(resolve("src/components/sales/invoice-form.tsx"), "utf8");
 const heightField = invoiceForm.indexOf('label="الارتفاع (سم)"');

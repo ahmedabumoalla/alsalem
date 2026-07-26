@@ -1,46 +1,66 @@
-# إعداد Supabase لتطبيق FoamSales
+# Supabase Phone Auth وGreen API في FoamSales
 
-التصميم الحالي مخصص لمستخدم واحد من دون تسجيل دخول أو Supabase Auth. المتصفح لا يتصل بـSupabase مباشرة؛ جميع العمليات تمر عبر Route Handlers في Next.js، ثم عميل Supabase خادمي يستخدم المفتاح السري.
+يستخدم FoamSales مصادقة الهاتف الرسمية من Supabase. يولد Supabase رمز OTP
+ويتحقق منه وينشئ الجلسة الرسمية، بينما يعمل Green API كقناة إرسال واتساب فقط
+عن طريق Send SMS Hook موقع.
 
-## 1. إنشاء قاعدة البيانات
+## Migrations
 
-أنشئ مشروع Supabase فارغًا، ثم نفّذ الملف `migrations/001_initial_schema.sql` كاملًا مرة واحدة من SQL Editor. الملف ينشئ الجداول الثمانية التالية:
+لا تعدّل migrations 001 أو 002 أو 003. الملف
+`004_remove_custom_otp_sessions.sql` يحذف جدولي `otp_challenges` و
+`admin_sessions` والدالة المرتبطة بهما فقط.
 
-- `pressure_costs`
-- `customers`
-- `invoices`
-- `invoice_items`
-- `customer_receipts`
-- `leads`
-- `audit_logs`
-- `app_meta`
+> لا تطبق migration 004 قبل نجاح اختبار OTP حقيقي كامل عبر Supabase Hook.
 
-ينشئ كذلك RPCs ذرية للفواتير والسندات، ويفعّل RLS على جميع الجداول، ويسحب الصلاحيات من `anon` و`authenticated`. لا توجد `profiles` أو أدوار أو علاقة مع `auth.users`.
+## متغيرات البيئة
 
-نفّذ الملف على مشروع فارغ فقط. إذا كانت هناك نسخة قديمة من المخطط المبني على Auth فلا تطبق هذا الملف فوقها؛ أنشئ مشروعًا فارغًا أو خطط لترحيل قاعدة البيانات منفصلًا.
-
-## 2. متغيرات الخادم
-
-انسخ `.env.example` إلى `.env.local` وأضف القيم الحقيقية:
+أضف محليًا وفي Vercel:
 
 ```env
 SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
 SUPABASE_SECRET_KEY=YOUR_SECRET_KEY
+ALLOWED_LOGIN_PHONE=+9665XXXXXXXX
+GREEN_API_API_URL=https://api.green-api.com
+GREEN_API_ID_INSTANCE=YOUR_INSTANCE_ID
+GREEN_API_TOKEN_INSTANCE=YOUR_INSTANCE_TOKEN
+SUPABASE_SEND_SMS_HOOK_SECRET=YOUR_HOOK_SECRET
 ```
 
-استخدم Secret key من إعدادات API في Supabase. لا تضف بادئة `NEXT_PUBLIC_`، ولا تحفظ المفتاح في Git، ولا تضعه في أي Client Component. أضف القيم نفسها في Vercel Environment Variables للإنتاج.
+جميعها خادمية ولا تستخدم معها `NEXT_PUBLIC_`. لا تضع الرقم الحقيقي أو أي
+token في Git.
 
-## 3. التحقق والترحيل
+## إعداد Green API
 
-شغّل التطبيق ثم افتح `/api/health`. بعد نجاح الاتصال ستظهر البيانات من Supabase. إذا اكتشف التطبيق مفاتيح FoamSales القديمة في `localStorage` فسيعرض شريط ترحيل يتيح:
+1. أنشئ Instance واربط واتساب عن طريق QR.
+2. تأكد أن حالة Instance هي `Authorized`.
+3. جرّب رسالة عادية قبل اختبار OTP.
+4. أضف `apiUrl` و`idInstance` و`apiTokenInstance` إلى Vercel.
 
-1. تنزيل نسخة JSON احتياطية.
-2. استيراد البيانات بترتيب التكاليف، العملاء ضمنيًا، الفواتير والأصناف، السندات، ثم العملاء المحتملين.
-3. عرض نتيجة الأعداد والإجماليات.
-4. حذف النسخة التشغيلية المحلية يدويًا فقط بعد نجاح التحقق.
+## إعداد Supabase Dashboard
 
-إعادة الاستيراد لا تكرر الفواتير أو السندات أو العملاء المحتملين. نتيجة آخر محاولة محفوظة في `app_meta` بالمفتاح `local_storage_import_v1`.
+1. افتح **Authentication → Providers → Phone** وفعّل Phone Provider.
+2. لا تضف Twilio أو مزود SMS مدمجًا؛ الإرسال يتم عبر Hook.
+3. افتح **Authentication → Hooks → Send SMS Hook**.
+4. اختر HTTP Hook وضع:
+   `https://YOUR_DOMAIN/api/auth/hooks/send-sms`
+5. ضع secret مطابقًا تمامًا لـ`SUPABASE_SEND_SMS_HOOK_SECRET`.
+6. اضبط Site URL وRedirect URLs على نطاق Vercel النهائي.
 
-## 4. ملاحظة الأمان
+يتحقق endpoint من `webhook-id` و`webhook-timestamp` و`webhook-signature`
+بـHMAC SHA-256 ومقارنة timing-safe، ويرفض التوقيعات الأقدم من خمس دقائق.
 
-لأن التطبيق لا يحتوي على هوية مستخدم، يجب تقييد رابط النشر على مستوى الشبكة أو Vercel Deployment Protection. أي شخص يستطيع الوصول إلى واجهة التطبيق يستطيع استدعاء Route Handlers الخاصة بها. مفتاح Supabase نفسه يبقى على الخادم ولا يظهر للمتصفح.
+## الاختبارات
+
+`npm run verify:all` يستخدم Green API mock ولا يرسل رسالة حقيقية.
+
+لإرسال رسالة اختبار واحدة مباشرة إلى Green API:
+
+```powershell
+$env:GREEN_API_TEST_ALLOW_SEND='1'
+npm.cmd run verify:green-api:live
+Remove-Item Env:GREEN_API_TEST_ALLOW_SEND
+```
+
+بعد إعداد Dashboard اختبر يدويًا: إرسال OTP، إدخال الرمز، فتح صفحات الإدارة،
+تحديث الصفحة للتأكد من استمرار الجلسة، ثم تسجيل الخروج.

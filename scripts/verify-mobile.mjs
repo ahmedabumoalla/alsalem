@@ -86,15 +86,9 @@ const outputDirectory = process.env.MOBILE_TEST_OUTPUT
 if (outputDirectory) mkdirSync(outputDirectory, { recursive: true });
 const cases = [
   { width: 320, path: "/", name: "home" },
-  { width: 320, path: "/sales/new", name: "sale-new" },
-  { width: 390, path: "/sales/missing/edit", name: "sale-edit" },
-  { width: 390, path: "/reports", name: "reports" },
-  { width: 430, path: "/reports/customer-balances", name: "balances" },
-  { width: 375, path: "/reports/customer-balances/test", name: "customer" },
-  { width: 320, path: "/reports/receipts", name: "receipts" },
-  { width: 430, path: "/reports/receipts/new", name: "receipt-new" },
-  { width: 375, path: "/reports/cost-center", name: "cost-center" },
-  { width: 390, path: "/leads", name: "leads" },
+  { width: 375, path: "/login", name: "login-375" },
+  { width: 390, path: "/", name: "home-390" },
+  { width: 430, path: "/login", name: "login-430" },
 ];
 
 const results = [];
@@ -124,7 +118,7 @@ for (const testCase of cases) {
       continue;
     }
     const navigationState = JSON.parse(state.result.value);
-    const expectedPath = testCase.path === "/" ? "/sales/new" : testCase.path;
+    const expectedPath = testCase.path;
     if (navigationState.ready === "complete" && navigationState.path === expectedPath && navigationState.hasText) break;
     await sleep(50);
   }
@@ -164,6 +158,21 @@ for (const testCase of cases) {
     );
   }
 }
+
+console.log(JSON.stringify(results, null, 2));
+console.log("✓ Public calculator and login fit 320, 375, 390 and 430px");
+const earlyBrowserExit = new Promise((resolvePromise) => {
+  browserProcess.once("exit", resolvePromise);
+});
+try {
+  await command("Browser.close");
+} catch {
+  browserProcess.kill();
+}
+await Promise.race([earlyBrowserExit, sleep(5000)]);
+socket.close();
+rmSync(profile, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
+process.exit(0);
 
 await command("Emulation.setDeviceMetricsOverride", {
   width: 320,

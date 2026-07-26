@@ -1,13 +1,30 @@
 import "server-only";
 
+import { missingEnvironmentNames } from "@/lib/auth/environment";
 import { sendGreenApiRequest, toGreenApiChatId } from "@/lib/green-api/core";
 
-function greenApiConfig() {
-  const apiUrl = process.env.GREEN_API_API_URL?.replace(/\/+$/, "");
-  const idInstance = process.env.GREEN_API_ID_INSTANCE;
-  const apiTokenInstance = process.env.GREEN_API_TOKEN_INSTANCE;
-  if (!apiUrl || !idInstance || !apiTokenInstance) throw new Error("إعدادات Green API غير مكتملة.");
-  return { apiUrl, idInstance, apiTokenInstance };
+export class GreenApiConfigurationError extends Error {
+  readonly missing: string[];
+
+  constructor(missing: string[]) {
+    super("إعدادات Green API غير مكتملة.");
+    this.name = "GreenApiConfigurationError";
+    this.missing = missing;
+  }
+}
+
+export function greenApiConfig() {
+  const missing = missingEnvironmentNames([
+    "GREEN_API_API_URL",
+    "GREEN_API_ID_INSTANCE",
+    "GREEN_API_TOKEN_INSTANCE",
+  ]);
+  if (missing.length) throw new GreenApiConfigurationError(missing);
+  return {
+    apiUrl: (process.env.GREEN_API_API_URL as string).replace(/\/+$/, ""),
+    idInstance: process.env.GREEN_API_ID_INSTANCE as string,
+    apiTokenInstance: process.env.GREEN_API_TOKEN_INSTANCE as string,
+  };
 }
 
 export { toGreenApiChatId };

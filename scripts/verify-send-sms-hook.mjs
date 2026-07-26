@@ -52,8 +52,12 @@ async function main() {
     request.on("data", (chunk) => { body += chunk; });
     request.on("end", () => {
       greenRequest = { url: request.url, body: JSON.parse(body) };
-      response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify({ idMessage: "mock-message-id" }));
+      const send = () => {
+        response.writeHead(200, { "content-type": "application/json" });
+        response.end(JSON.stringify({ idMessage: "mock-message-id" }));
+      };
+      if (greenRequest.body.message.includes("999999")) setTimeout(send, 4_500);
+      else send();
     });
   });
   const greenPort = await randomPort(greenServer);
@@ -73,16 +77,20 @@ async function main() {
         GREEN_API_ID_INSTANCE: "test-instance",
         GREEN_API_TOKEN_INSTANCE: "test-token",
       },
-      stdio: "ignore",
+      stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
     },
   );
+  let serverLogs = "";
+  child.stdout.on("data", (chunk) => { serverLogs += String(chunk); });
+  child.stderr.on("data", (chunk) => { serverLogs += String(chunk); });
   try {
     const hookUrl = `http://127.0.0.1:${nextPort}/api/auth/hooks/send-sms`;
     await waitForServer(hookUrl, child);
     const rawBody = JSON.stringify({ user: { phone: allowedPhone }, sms: { otp: "012345" } });
     const success = await fetch(hookUrl, { method: "POST", headers: signedHeaders(rawBody), body: rawBody });
     assert.equal(success.status, 200);
+    assert.equal(success.headers.get("cache-control"), "no-store");
     assert.deepEqual(await success.json(), {});
     assert.equal(greenRequest?.url, "/waInstancetest-instance/sendMessage/test-token");
     assert.equal(greenRequest?.body.chatId, "966500000000@c.us");
@@ -94,10 +102,38 @@ async function main() {
       body: rawBody,
     });
     assert.equal(invalid.status, 401);
+    assert.equal(invalid.headers.get("cache-control"), "no-store");
+
+    const invalidPayloadBody = JSON.stringify({ user: { phone: allowedPhone }, sms: { otp: "bad" } });
+    const invalidPayload = await fetch(hookUrl, {
+      method: "POST",
+      headers: signedHeaders(invalidPayloadBody),
+      body: invalidPayloadBody,
+    });
+    assert.equal(invalidPayload.status, 400);
+    assert.equal(invalidPayload.headers.get("cache-control"), "no-store");
 
     const otherBody = JSON.stringify({ user: { phone: "+966511111111" }, sms: { otp: "012345" } });
     const other = await fetch(hookUrl, { method: "POST", headers: signedHeaders(otherBody), body: otherBody });
     assert.equal(other.status, 403);
+    assert.equal(other.headers.get("cache-control"), "no-store");
+
+    const timeoutBody = JSON.stringify({ user: { phone: allowedPhone }, sms: { otp: "999999" } });
+    const timeout = await fetch(hookUrl, {
+      method: "POST",
+      headers: signedHeaders(timeoutBody),
+      body: timeoutBody,
+    });
+    assert.equal(timeout.status, 502);
+    assert.equal(timeout.headers.get("cache-control"), "no-store");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    assert.match(serverLogs, /HOOK_SIGNATURE_INVALID/);
+    assert.match(serverLogs, /HOOK_PAYLOAD_INVALID/);
+    assert.match(serverLogs, /HOOK_PHONE_NOT_ALLOWED/);
+    assert.match(serverLogs, /GREEN_API_TIMEOUT/);
+    for (const sensitive of ["012345", "999999", "test-token", allowedPhone, "+966511111111"]) {
+      assert.equal(serverLogs.includes(sensitive), false, `logs leaked sensitive value: ${sensitive}`);
+    }
     console.log("✓ Signed Supabase Send SMS Hook invokes Green API mock and rejects invalid signature/phone");
   } finally {
     child.kill();

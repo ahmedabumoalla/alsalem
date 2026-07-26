@@ -3,6 +3,9 @@ import { createHmac } from "node:crypto";
 import { sendGreenApiRequest, toGreenApiChatId } from "../src/lib/green-api/core";
 import { normalizeSaudiPhoneValue } from "../src/lib/auth/phone-core";
 import { verifySupabaseHookSignature } from "../src/lib/auth/supabase-hook-signature-core";
+import { missingEnvironmentNames } from "../src/lib/auth/environment";
+import { isSupabaseRateLimit, sendOtpErrorResponse } from "../src/lib/auth/send-otp-errors";
+import { GreenApiSendError, GreenApiTimeoutError } from "../src/lib/green-api/core";
 
 async function main() {
   const secretBytes = Buffer.from("foamsales-hook-test-secret-at-least-32-bytes", "utf8");
@@ -24,6 +27,22 @@ async function main() {
     rawBody, webhookId, webhookTimestamp,
     webhookSignature: "v1,invalid", secret,
   }), false);
+
+  assert.equal(isSupabaseRateLimit({ status: 429, message: "limited" }), true);
+  assert.equal(isSupabaseRateLimit({ code: "over_sms_send_rate_limit", message: "limited" }), true);
+  assert.equal(isSupabaseRateLimit({ status: 500, code: "hook_failed", message: "failed" }), false);
+  const rateResponse = sendOtpErrorResponse({ status: 429, message: "internal rate message" });
+  assert.equal(rateResponse.status, 429);
+  assert.equal(rateResponse.headers.get("cache-control"), "no-store");
+  assert.deepEqual(await rateResponse.json(), { error: "انتظر دقيقة قبل إعادة إرسال الرمز" });
+  const upstreamResponse = sendOtpErrorResponse({ status: 500, code: "hook_failed", message: "sensitive" });
+  assert.equal(upstreamResponse.status, 502);
+  assert.equal(upstreamResponse.headers.get("cache-control"), "no-store");
+  assert.deepEqual(await upstreamResponse.json(), { error: "تعذر إرسال رمز التحقق" });
+  assert.deepEqual(
+    missingEnvironmentNames(["SUPABASE_URL", "SUPABASE_PUBLISHABLE_KEY"], { SUPABASE_URL: "url" }),
+    ["SUPABASE_PUBLISHABLE_KEY"],
+  );
   assert.equal(verifySupabaseHookSignature({
     rawBody, webhookId, webhookTimestamp: "1",
     webhookSignature: `v1,${signature}`, secret,
@@ -57,7 +76,19 @@ async function main() {
   assert.match(requestBody.message ?? "", /012345/);
   await assert.rejects(
     () => sendGreenApiRequest(config, phone, "012345", async () => new Response("{}", { status: 500 })),
-    /تعذر إرسال/,
+    GreenApiSendError,
+  );
+  await assert.rejects(
+    () => sendGreenApiRequest(
+      config,
+      phone,
+      "012345",
+      async (_input, init) => new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")));
+      }),
+      10,
+    ),
+    GreenApiTimeoutError,
   );
 
   console.log("✓ Supabase Hook signature and Green API mock verified without sending messages");

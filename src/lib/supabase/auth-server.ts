@@ -3,12 +3,25 @@ import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { Database } from "@/lib/supabase/database";
+import { missingEnvironmentNames } from "@/lib/auth/environment";
 
-function authConfig() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key) throw new Error("إعدادات Supabase Auth غير مكتملة.");
-  return { url, key };
+export class SupabaseAuthConfigurationError extends Error {
+  readonly missing: string[];
+
+  constructor(missing: string[]) {
+    super("إعدادات Supabase Auth غير مكتملة.");
+    this.name = "SupabaseAuthConfigurationError";
+    this.missing = missing;
+  }
+}
+
+export function authConfig() {
+  const missing = missingEnvironmentNames(["SUPABASE_URL", "SUPABASE_PUBLISHABLE_KEY"]);
+  if (missing.length) throw new SupabaseAuthConfigurationError(missing);
+  return {
+    url: process.env.SUPABASE_URL as string,
+    key: process.env.SUPABASE_PUBLISHABLE_KEY as string,
+  };
 }
 
 export async function createSupabaseAuthClient() {

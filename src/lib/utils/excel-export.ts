@@ -88,7 +88,7 @@ function invoiceRows(invoices: Invoice[]): CellValue[][] {
         item.quantity,
         item.unitSalePrice,
         item.unitCost,
-        item.costSource === "manual" ? "يدوية" : "تلقائية تشمل الهدر",
+        item.costSource === "manual" ? "يدوية" : "تلقائية",
         item.productSubtotal,
         item.totalCost,
         item.netProfit,

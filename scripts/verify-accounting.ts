@@ -28,18 +28,22 @@ const full = calculateUnitCost(200, 400, 120, 100);
 const half = calculateUnitCost(200, 400, 120, 50);
 assert.equal(full, 200);
 assert.equal(half, 100);
-assert.equal(calculateUnitCost(718, 200, 40, 20), 23.93);
-assert.equal(calculateUnitCost(718, 200, 40, 19), 23.93);
-assert.equal(calculateUnitCost(480, 300, 20, 10), 8);
+const nineteenByFortyByTwoHundred = calculateUnitCost(718, 200, 40, 19);
+const twentyByFortyByTwoHundred = calculateUnitCost(718, 200, 40, 20);
+assert.equal(nineteenByFortyByTwoHundred, 22.74);
+assert.equal(twentyByFortyByTwoHundred, 23.93);
+assert.notEqual(nineteenByFortyByTwoHundred, twentyByFortyByTwoHundred);
+assert.equal(calculateUnitCost(480, 300, 20, 10), 6);
 assert.throws(() => calculateUnitCost(Infinity, 400, 120, 100));
 assert.throws(() => calculateUnitCost(200, 400, 120, 0));
-assert.throws(() => calculateUnitCost(200, 401, 120, 100));
-assert.throws(() => calculateUnitCost(200, 400, 121, 100));
-assert.throws(() => calculateUnitCost(200, 400, 120, 101));
+assert.equal(calculateUnitCost(200, 401, 120, 100), 200.5);
 
 const automatic = calculateInvoiceItem({ id: "1", lengthCm: 400, widthCm: 120, heightCm: 50, densityPressure: 8, quantity: 3, unitSalePrice: 150, standardBlockCost: 200 });
 assert.equal(automatic.costSource, "auto");
 assert.equal(automatic.totalCost, 300);
+const volumeQuantity = calculateInvoiceItem({ id: "volume-quantity", lengthCm: 200, widthCm: 40, heightCm: 19, densityPressure: 8, quantity: 3, unitSalePrice: 100, standardBlockCost: 718 });
+assert.equal(volumeQuantity.unitCost, 22.74);
+assert.equal(volumeQuantity.totalCost, 68.21);
 const manual = calculateInvoiceItem({ id: "2", lengthCm: 400, widthCm: 120, heightCm: 100, densityPressure: 8, quantity: 2, unitSalePrice: 350, standardBlockCost: 200, unitCost: 125.25, costSource: "manual" });
 assert.equal(manual.totalCost, 250.5);
 assert.equal(manual.netProfit, 449.5);
@@ -101,7 +105,7 @@ assert.ok(invoicesSheetXml.includes("مصدر التكلفة"));
 for (const forbidden of ["حالة السداد", "رقم التواصل", "وصف قديم", "0555-000-111"]) {
   assert.ok(!invoicesSheetXml.includes(forbidden), `Excel must not include ${forbidden}`);
 }
-console.log("✓ Accounting: waste-loaded cost, manual override, totals, reports and real Excel verified");
+console.log("✓ Accounting: volume-based cost, manual override, totals, reports and real Excel verified");
 
 async function verifyStorageMigration() {
   const memory = new Map<string, string>();

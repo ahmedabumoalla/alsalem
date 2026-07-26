@@ -27,9 +27,6 @@ import {
   calculateInvoiceItem,
   calculateInvoiceTotals,
   MISSING_PRESSURE_COST_MESSAGE,
-  STANDARD_BLOCK_HEIGHT_CM,
-  STANDARD_BLOCK_LENGTH_CM,
-  STANDARD_BLOCK_WIDTH_CM,
 } from "@/lib/utils/invoice-calculations";
 import { generateInvoiceNumber } from "@/lib/utils/invoice-number";
 
@@ -127,17 +124,15 @@ function validateForm(form: FormData, pressures: Set<number>): Errors {
 
   form.items.forEach((item, index) => {
     const prefix = `item-${item.id}-`;
-    const dimensions: [keyof ItemForm, string, number][] = [
-      ["heightCm", "الارتفاع", STANDARD_BLOCK_HEIGHT_CM],
-      ["widthCm", "العرض", STANDARD_BLOCK_WIDTH_CM],
-      ["lengthCm", "الطول", STANDARD_BLOCK_LENGTH_CM],
+    const dimensions: [keyof ItemForm, string][] = [
+      ["heightCm", "الارتفاع"],
+      ["widthCm", "العرض"],
+      ["lengthCm", "الطول"],
     ];
-    dimensions.forEach(([key, label, maximum]) => {
+    dimensions.forEach(([key, label]) => {
       const value = Number(item[key]);
       if (!Number.isFinite(value) || value <= 0) {
         errors[prefix + key] = `${label} يجب أن يكون أكبر من صفر`;
-      } else if (value > maximum) {
-        errors[prefix + key] = `${label} لا يمكن أن يتجاوز ${maximum} سم`;
       }
     });
     if (!pressures.has(Number(item.densityPressure))) {
@@ -399,7 +394,7 @@ export function InvoiceForm({
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-xl font-bold text-primary">أصناف الفاتورة</h2>
-              <p className="text-sm text-muted">التكلفة التلقائية تشمل هدر القص اعتمادًا على البلك القياسي 100×120×400، ويمكن اعتماد تكلفة يدوية لكل صنف.</p>
+              <p className="text-sm text-muted">التكلفة التلقائية محسوبة حسب نسبة حجم القطعة من البلكة القياسية 100×120×400، ويمكن اعتماد تكلفة يدوية لكل صنف.</p>
             </div>
             <Button type="button" onClick={() => setForm((current) => ({ ...current, items: [...current.items, newItem()] }))}>
               <Plus className="h-4 w-4" /> إضافة صنف

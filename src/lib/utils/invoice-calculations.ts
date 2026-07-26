@@ -1,12 +1,6 @@
 import type { CostSource, InvoiceItem } from "@/lib/types/invoice";
 
-export const STANDARD_BLOCK_HEIGHT_CM = 100;
-export const STANDARD_BLOCK_WIDTH_CM = 120;
-export const STANDARD_BLOCK_LENGTH_CM = 400;
-export const STANDARD_BLOCK_VOLUME_CM3 =
-  STANDARD_BLOCK_HEIGHT_CM *
-  STANDARD_BLOCK_WIDTH_CM *
-  STANDARD_BLOCK_LENGTH_CM;
+export const STANDARD_BLOCK_VOLUME_CM3 = 100 * 120 * 400;
 export const MISSING_PRESSURE_COST_MESSAGE =
   "لم يتم تحديد تكلفة الضغط المختار في مركز التكلفة";
 
@@ -27,16 +21,10 @@ export function calculateUnitCost(
   if (lengthCm <= 0 || widthCm <= 0 || heightCm <= 0) {
     throw new Error("أبعاد الصنف يجب أن تكون أكبر من صفر");
   }
-  const countByHeight = Math.floor(STANDARD_BLOCK_HEIGHT_CM / heightCm);
-  const countByWidth = Math.floor(STANDARD_BLOCK_WIDTH_CM / widthCm);
-  const countByLength = Math.floor(STANDARD_BLOCK_LENGTH_CM / lengthCm);
-  const totalPiecesPerBlock = countByHeight * countByWidth * countByLength;
-  if (totalPiecesPerBlock === 0) {
-    throw new Error(
-      "أبعاد الصنف يجب ألا تتجاوز البلك القياسي 100×120×400 سم"
-    );
-  }
-  return roundMoney(standardBlockCost / totalPiecesPerBlock);
+  return roundMoney(
+    standardBlockCost *
+      ((lengthCm * widthCm * heightCm) / STANDARD_BLOCK_VOLUME_CM3)
+  );
 }
 
 export function calculateInvoiceItem(input: {
@@ -64,7 +52,14 @@ export function calculateInvoiceItem(input: {
     throw new Error("تكلفة الوحدة يجب أن تكون رقمًا منتهيًا وصفرًا أو أكثر");
   }
   const productSubtotal = roundMoney(input.unitSalePrice * input.quantity);
-  const totalCost = roundMoney(unitCost * input.quantity);
+  const totalCost = roundMoney(
+    costSource === "manual"
+      ? unitCost * input.quantity
+      : input.standardBlockCost *
+          ((input.lengthCm * input.widthCm * input.heightCm) /
+            STANDARD_BLOCK_VOLUME_CM3) *
+          input.quantity
+  );
   return {
     ...input,
     unitCost,

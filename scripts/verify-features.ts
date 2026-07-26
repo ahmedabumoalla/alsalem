@@ -39,7 +39,12 @@ const lengthField = invoiceForm.indexOf('label="الطول (سم)"');
 assert.ok(heightField >= 0 && heightField < widthField && widthField < lengthField);
 assert.match(invoiceForm, /!existingInvoice && \(/);
 assert.match(invoiceForm, /تسجيل دفعة أولية - اختياري/);
-assert.match(invoiceForm, /تشمل هدر القص/);
+assert.match(invoiceForm, /نسبة حجم القطعة من البلكة القياسية/);
+assert.match(invoiceForm, /calculateInvoiceItem/);
+const publicCalculator = readFileSync(resolve("src/components/public/cost-calculator.tsx"), "utf8");
+assert.match(publicCalculator, /calculateUnitCost/);
+const costCalculations = readFileSync(resolve("src/lib/utils/invoice-calculations.ts"), "utf8");
+assert.ok(!costCalculations.includes("Math.floor"));
 
 const reportsPage = readFileSync(resolve("src/app/reports/page.tsx"), "utf8");
 const invoiceSection = reportsPage.indexOf('id="invoices"');

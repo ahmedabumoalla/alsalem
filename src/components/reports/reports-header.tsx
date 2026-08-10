@@ -10,13 +10,17 @@ import {
   Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { QuickDateFilter } from "@/components/reports/quick-date-filter";
 import { formatInvoiceCount } from "@/lib/utils/format";
+import type { QuickDatePreset } from "@/lib/utils/report-date-range";
 
 interface ReportsHeaderProps {
   filteredCount: number;
   query: string;
   onQueryChange: (value: string) => void;
   onOpenFilters: () => void;
+  datePreset: QuickDatePreset;
+  onDatePresetChange: (value: Exclude<QuickDatePreset, "custom">) => void;
   onExportExcel: () => Promise<void>;
   onExportInvoicesPdf: () => Promise<void>;
   exportDisabled: boolean;
@@ -29,6 +33,8 @@ export function ReportsHeader({
   query,
   onQueryChange,
   onOpenFilters,
+  datePreset,
+  onDatePresetChange,
   onExportExcel,
   onExportInvoicesPdf,
   exportDisabled,
@@ -64,8 +70,8 @@ export function ReportsHeader({
         </div>
       </div>
 
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <label className="relative min-w-0 flex-1">
+      <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+        <label className="relative col-span-2 min-w-0 sm:col-span-1">
           <span className="sr-only">بحث في الفواتير</span>
           <Search className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
           <input
@@ -76,7 +82,12 @@ export function ReportsHeader({
             className="h-11 w-full rounded-xl border border-border bg-card pr-11 pl-4 text-sm outline-none transition focus:border-secondary focus:ring-2 focus:ring-secondary/15"
           />
         </label>
-        <Button variant="outline" onClick={onOpenFilters}>
+        <QuickDateFilter
+          value={datePreset}
+          onChange={onDatePresetChange}
+          onOpenCustom={onOpenFilters}
+        />
+        <Button className="w-full px-3 sm:w-auto" variant="outline" onClick={onOpenFilters}>
           <Filter className="h-4 w-4" />الفلاتر
         </Button>
       </div>

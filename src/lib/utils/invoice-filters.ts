@@ -1,6 +1,7 @@
 import type { Invoice } from "@/lib/types/invoice";
 import { hasRecordedCustomerName, normalizeSellerName } from "@/lib/utils/invoice-report";
 import { normalizeCustomerName } from "@/lib/utils/customer-accounting";
+import { getReportDateRange } from "@/lib/utils/report-date-range";
 
 export interface InvoiceFilters {
   query: string;
@@ -11,8 +12,26 @@ export interface InvoiceFilters {
   densityPressure: string;
 }
 
-export const defaultFilters: InvoiceFilters = { query: "", dateFrom: "", dateTo: "", sellerName: "", customerName: "", densityPressure: "" };
+export function createDefaultInvoiceFilters(reference = new Date()): InvoiceFilters {
+  return {
+    query: "",
+    ...getReportDateRange("thisMonth", reference),
+    sellerName: "",
+    customerName: "",
+    densityPressure: "",
+  };
+}
+
+export const defaultFilters: InvoiceFilters = createDefaultInvoiceFilters();
 export function hasActiveFilters(filters: InvoiceFilters): boolean { return Object.values(filters).some(Boolean); }
+export function hasNonDefaultInvoiceFilters(
+  filters: InvoiceFilters,
+  reference = new Date(),
+): boolean {
+  const defaults = createDefaultInvoiceFilters(reference);
+  return (Object.keys(defaults) as Array<keyof InvoiceFilters>)
+    .some((key) => key !== "query" && filters[key] !== defaults[key]);
+}
 export function filterInvoices(invoices: Invoice[], filters: InvoiceFilters): Invoice[] {
   const query = filters.query.trim().toLocaleLowerCase("ar");
   return invoices.filter((invoice) =>

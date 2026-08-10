@@ -10,19 +10,24 @@ import { useToast } from "@/components/ui/toast-provider";
 import { useInvoices } from "@/lib/hooks/use-invoices";
 import {
   calculateStats,
-  defaultFilters,
+  createDefaultInvoiceFilters,
   filterInvoices,
   getUniqueCustomers,
   getUniquePressures,
   getUniqueSellers,
-  hasActiveFilters,
+  hasNonDefaultInvoiceFilters,
   type InvoiceFilters,
 } from "@/lib/utils/invoice-filters";
+import {
+  detectReportDatePreset,
+  getReportDateRange,
+  type QuickDatePreset,
+} from "@/lib/utils/report-date-range";
 
 export default function ReportsPage() {
-  const invoices = useInvoices();
   const { showToast } = useToast();
-  const [filters, setFilters] = useState<InvoiceFilters>(defaultFilters);
+  const [filters, setFilters] = useState<InvoiceFilters>(() => createDefaultInvoiceFilters());
+  const invoices = useInvoices({ dateFrom: filters.dateFrom, dateTo: filters.dateTo });
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [activeExport, setActiveExport] = useState<"excel" | "pdf" | null>(null);
 
@@ -31,6 +36,20 @@ export default function ReportsPage() {
   const sellers = useMemo(() => getUniqueSellers(invoices), [invoices]);
   const customers = useMemo(() => getUniqueCustomers(invoices), [invoices]);
   const pressures = useMemo(() => getUniquePressures(invoices), [invoices]);
+  const datePreset = detectReportDatePreset(filters);
+
+  function handleDatePresetChange(
+    preset: Exclude<QuickDatePreset, "custom">,
+  ) {
+    setFilters((current) => ({ ...current, ...getReportDateRange(preset) }));
+  }
+
+  function resetFilters() {
+    setFilters((current) => ({
+      ...createDefaultInvoiceFilters(),
+      query: current.query,
+    }));
+  }
 
   async function handleExportExcel() {
     if (activeExport || filteredInvoices.length === 0) return;
@@ -69,7 +88,7 @@ export default function ReportsPage() {
     }
   }
 
-  const nonSearchFiltersActive = hasActiveFilters({ ...filters, query: "" });
+  const nonSearchFiltersActive = hasNonDefaultInvoiceFilters(filters);
 
   return (
     <div className="space-y-8">
@@ -78,6 +97,8 @@ export default function ReportsPage() {
         query={filters.query}
         onQueryChange={(query) => setFilters((current) => ({ ...current, query }))}
         onOpenFilters={() => setFiltersOpen(true)}
+        datePreset={datePreset}
+        onDatePresetChange={handleDatePresetChange}
         onExportExcel={handleExportExcel}
         onExportInvoicesPdf={handleExportInvoicesPdf}
         exportDisabled={filteredInvoices.length === 0}
@@ -95,7 +116,7 @@ export default function ReportsPage() {
             <button
               type="button"
               className="text-sm font-medium text-secondary hover:underline"
-              onClick={() => setFilters((current) => ({ ...defaultFilters, query: current.query }))}
+              onClick={resetFilters}
             >
               مسح الفلاتر
             </button>
@@ -122,7 +143,7 @@ export default function ReportsPage() {
           pressures={pressures}
           onApply={setFilters}
           onClose={() => setFiltersOpen(false)}
-          onReset={() => setFilters((current) => ({ ...defaultFilters, query: current.query }))}
+          onReset={resetFilters}
         />
       )}
     </div>

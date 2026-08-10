@@ -8,10 +8,18 @@ import { mapInvoice, type InvoiceJoinedRow } from "@/lib/data/mappers";
 
 const INVOICE_SELECT = "*, invoice_items(*)";
 
-export async function listInvoices(includeDeleted = false): Promise<Invoice[]> {
+export interface ListInvoicesOptions {
+  includeDeleted?: boolean;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export async function listInvoices(options: ListInvoicesOptions = {}): Promise<Invoice[]> {
   const client = getSupabaseServerClient();
   let query = client.from("invoices").select(INVOICE_SELECT).order("invoice_date", { ascending: false }).order("created_at", { ascending: false });
-  if (!includeDeleted) query = query.is("deleted_at", null);
+  if (!options.includeDeleted) query = query.is("deleted_at", null);
+  if (options.dateFrom) query = query.gte("invoice_date", options.dateFrom);
+  if (options.dateTo) query = query.lte("invoice_date", options.dateTo);
   const { data, error } = await query;
   if (error) throw toDataAccessError(error, "تعذر تحميل الفواتير.");
   return (data as unknown as InvoiceJoinedRow[]).map(mapInvoice);

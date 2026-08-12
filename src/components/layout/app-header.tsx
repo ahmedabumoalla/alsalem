@@ -12,11 +12,12 @@ const adminLinks = [
   { href: "/reports", label: "التقارير" },
   { href: "/leads", label: "العملاء المحتملون" },
 ];
+const publicLink = { href: "/", label: "حاسبة التكلفة" };
 
 export function AppHeader({ authenticated }: { authenticated: boolean }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const navLinks = authenticated ? adminLinks : [{ href: "/", label: "حاسبة التكلفة" }];
+  const navLinks = authenticated ? [publicLink, ...adminLinks] : [publicLink];
   const links = navLinks.map((link) => (
     <Link key={link.href} href={link.href} onClick={() => setMobileOpen(false)}
       className={cn("min-h-11 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors", pathname === link.href || (link.href !== "/" && pathname.startsWith(link.href)) ? "bg-primary text-white" : "text-muted hover:bg-background hover:text-primary")}>

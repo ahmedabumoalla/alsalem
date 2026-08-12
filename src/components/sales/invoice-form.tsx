@@ -391,14 +391,11 @@ export function InvoiceForm({
             </div>
           </Card>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
             <div>
               <h2 className="text-xl font-bold text-primary">أصناف الفاتورة</h2>
               <p className="text-sm text-muted">التكلفة التلقائية محسوبة حسب نسبة حجم القطعة من البلكة القياسية 100×120×400، ويمكن اعتماد تكلفة يدوية لكل صنف.</p>
             </div>
-            <Button type="button" onClick={() => setForm((current) => ({ ...current, items: [...current.items, newItem()] }))}>
-              <Plus className="h-4 w-4" /> إضافة صنف
-            </Button>
           </div>
 
           {pressureCosts.length === 0 && (
@@ -450,6 +447,20 @@ export function InvoiceForm({
               </Card>
             );
           })}
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={() =>
+              setForm((current) => ({
+                ...current,
+                items: [...current.items, newItem()],
+              }))
+            }
+          >
+            <Plus className="h-4 w-4" /> إضافة صنف آخر
+          </Button>
 
           {!existingInvoice && (
             <details className="group rounded-3xl border border-border bg-card shadow-sm">

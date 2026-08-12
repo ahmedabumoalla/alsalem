@@ -25,7 +25,7 @@ export default function CustomerBalancesPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-extrabold text-primary sm:text-3xl">
-            ميزان العملاء
+            أرصدة العملاء
           </h1>
           <p className="mt-2 text-sm text-muted sm:text-base">
             المبيعات مدينة وسندات القبض دائنة، مع أحدث هاتف مسجل للعميل.

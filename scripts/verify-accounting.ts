@@ -82,6 +82,9 @@ assert.equal(balances[0].balance, 175);
 assert.equal(balances[0].customerPhone, "+966500000000");
 assert.equal(validateReceiptAmount(176, 175), "مبلغ السند لا يمكن أن يتجاوز مديونية العميل");
 assert.equal(validateReceiptAmount(175, 175), undefined);
+assert.equal(validateReceiptAmount(500, 175), "مبلغ السند لا يمكن أن يتجاوز مديونية العميل");
+assert.equal(validateReceiptAmount(100, 175), undefined);
+assert.equal(validateReceiptAmount(1, 0), "مبلغ السند لا يمكن أن يتجاوز مديونية العميل");
 const statement = buildCustomerStatement("شركة ألف", [migrated, invoice2], receipts);
 assert.equal(statement.at(-1)?.runningBalance, 175);
 

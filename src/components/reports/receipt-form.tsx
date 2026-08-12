@@ -25,7 +25,12 @@ import { hasRecordedCustomerName } from "@/lib/utils/invoice-report";
 function generateNumber() {
   return `RC-${format(new Date(), "yyyyMMdd-HHmmss")}`;
 }
-export function ReceiptForm({ existing }: { existing?: CustomerReceipt }) {
+interface ReceiptFormProps {
+  existing?: CustomerReceipt;
+  initialCustomer?: string;
+}
+
+export function ReceiptForm({ existing, initialCustomer = "" }: ReceiptFormProps) {
   const router = useRouter(),
     { showToast } = useToast(),
     invoices = useInvoices(),
@@ -41,20 +46,18 @@ export function ReceiptForm({ existing }: { existing?: CustomerReceipt }) {
       ].sort((a, b) => a.localeCompare(b, "ar")),
     [invoices],
   );
-  const queryCustomer =
-    typeof window !== "undefined"
-      ? (new URLSearchParams(window.location.search).get("customer") ?? "")
-      : "";
   const [receiptNumber, setReceiptNumber] = useState(
     existing?.receiptNumber ?? generateNumber(),
   );
   const [customer, setCustomer] = useState(
-    existing?.customerName ?? queryCustomer,
+    existing?.customerName ?? normalizeCustomerName(initialCustomer),
   );
   const [date, setDate] = useState(
     existing?.date ?? format(new Date(), "yyyy-MM-dd"),
   );
-  const [amount, setAmount] = useState(existing ? String(existing.amount) : "");
+  const [amount, setAmount] = useState<string | undefined>(
+    existing ? String(existing.amount) : undefined,
+  );
   const [method, setMethod] = useState<ReceiptPaymentMethod>(
     existing?.paymentMethod ?? "cash",
   );
@@ -65,13 +68,16 @@ export function ReceiptForm({ existing }: { existing?: CustomerReceipt }) {
     ? receipts.filter((r) => r.id !== existing.id)
     : receipts;
   const balance = getCustomerBalance(customer, invoices, otherReceipts);
+  const displayedAmount =
+    amount ?? (!existing && customer && balance > 0 ? String(balance) : "");
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!customer) {
       setError("اسم العميل مطلوب");
       return;
     }
-    const numeric = Number(amount);
+    const numeric = Number(displayedAmount);
     const validation = validateReceiptAmount(numeric, balance);
     if (validation) {
       setError(validation);
@@ -127,6 +133,7 @@ export function ReceiptForm({ existing }: { existing?: CustomerReceipt }) {
             value={customer}
             onChange={(e) => {
               setCustomer(e.target.value);
+              setAmount(undefined);
               setError("");
             }}
             options={[
@@ -140,7 +147,7 @@ export function ReceiptForm({ existing }: { existing?: CustomerReceipt }) {
             type="number"
             min="0"
             step="any"
-            value={amount}
+            value={displayedAmount}
             onChange={(e) => {
               setAmount(e.target.value);
               setError("");
@@ -173,7 +180,12 @@ export function ReceiptForm({ existing }: { existing?: CustomerReceipt }) {
           </div>
         </div>
         <div className="mt-4 rounded-xl bg-background p-3 text-sm">
-          الرصيد المتاح للتحصيل: <b>{formatCurrency(balance)}</b>
+          الرصيد الحالي للعميل: <b>{formatCurrency(balance)}</b>
+          {!existing && customer && balance > 0 && (
+            <span className="mt-1 block text-xs text-muted">
+              يبدأ مبلغ السند بكامل الرصيد، ويمكن تخفيضه لتسجيل دفعة جزئية.
+            </span>
+          )}
         </div>
         {error && <p className="mt-3 text-sm text-danger">{error}</p>}
       </Card>

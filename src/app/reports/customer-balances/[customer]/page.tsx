@@ -52,7 +52,7 @@ export default function CustomerStatementPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <Link href="/reports/customer-balances" className="mb-3 inline-flex items-center gap-1 text-sm text-secondary hover:underline"><ArrowRight className="h-4 w-4" />ميزان العملاء</Link>
+          <Link href="/reports/customer-balances" className="mb-3 inline-flex items-center gap-1 text-sm text-secondary hover:underline"><ArrowRight className="h-4 w-4" />أرصدة العملاء</Link>
           <h1 className="text-2xl font-extrabold text-primary sm:text-3xl">كشف حساب {customerName}</h1>
           {balance.customerPhone && <a href={`tel:${balance.customerPhone}`} dir="ltr" className="mt-2 inline-flex items-center gap-2 text-secondary"><Phone className="h-4 w-4" />{balance.customerPhone}</a>}
         </div>

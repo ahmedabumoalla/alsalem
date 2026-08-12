@@ -31,6 +31,26 @@ assert.ok(!rootPage.includes("HeroSection"));
 const header = readFileSync(resolve("src/components/layout/app-header.tsx"), "utf8");
 assert.match(header, /authenticated/);
 assert.ok(header.includes("حاسبة التكلفة"));
+assert.match(header, /authenticated \? \[publicLink, \.\.\.adminLinks\] : \[publicLink\]/);
+
+const balancesPage = readFileSync(resolve("src/app/reports/customer-balances/page.tsx"), "utf8");
+const balanceDetailsPage = readFileSync(resolve("src/app/reports/customer-balances/[customer]/page.tsx"), "utf8");
+const reportsNav = readFileSync(resolve("src/components/reports/reports-nav.tsx"), "utf8");
+for (const source of [balancesPage, balanceDetailsPage, reportsNav]) {
+  assert.ok(source.includes("أرصدة العملاء"));
+  assert.ok(!source.includes("ميزان العملاء"));
+}
+
+const newReceiptPage = readFileSync(resolve("src/app/reports/receipts/new/page.tsx"), "utf8");
+const receiptForm = readFileSync(resolve("src/components/reports/receipt-form.tsx"), "utf8");
+assert.match(newReceiptPage, /await searchParams/);
+assert.match(newReceiptPage, /initialCustomer=\{initialCustomer\}/);
+assert.ok(!newReceiptPage.includes("query.amount"));
+assert.ok(!receiptForm.includes("window.location.search"));
+assert.ok(!receiptForm.includes("new URLSearchParams"));
+assert.match(receiptForm, /getCustomerBalance\(customer, invoices, otherReceipts\)/);
+assert.match(receiptForm, /amount \?\? \(!existing && customer && balance > 0 \? String\(balance\) : ""\)/);
+assert.match(receiptForm, /setAmount\(undefined\)/);
 
 const invoiceForm = readFileSync(resolve("src/components/sales/invoice-form.tsx"), "utf8");
 const heightField = invoiceForm.indexOf('label="الارتفاع (سم)"');
@@ -41,6 +61,11 @@ assert.match(invoiceForm, /!existingInvoice && \(/);
 assert.match(invoiceForm, /تسجيل دفعة أولية - اختياري/);
 assert.match(invoiceForm, /نسبة حجم القطعة من البلكة القياسية/);
 assert.match(invoiceForm, /calculateInvoiceItem/);
+const itemsMap = invoiceForm.indexOf("form.items.map");
+const addItemButton = invoiceForm.indexOf("إضافة صنف آخر");
+const initialPaymentSection = invoiceForm.indexOf("تسجيل دفعة أولية - اختياري");
+assert.ok(itemsMap >= 0 && addItemButton > itemsMap && addItemButton < initialPaymentSection);
+assert.equal(invoiceForm.match(/إضافة صنف آخر/g)?.length, 1);
 const publicCalculator = readFileSync(resolve("src/components/public/cost-calculator.tsx"), "utf8");
 assert.match(publicCalculator, /calculateUnitCost/);
 const costCalculations = readFileSync(resolve("src/lib/utils/invoice-calculations.ts"), "utf8");

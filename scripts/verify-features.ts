@@ -29,9 +29,8 @@ const rootPage = readFileSync(resolve("src/app/page.tsx"), "utf8");
 assert.match(rootPage, /CostCalculator/);
 assert.ok(!rootPage.includes("HeroSection"));
 const header = readFileSync(resolve("src/components/layout/app-header.tsx"), "utf8");
-assert.match(header, /authenticated/);
-assert.ok(header.includes("حاسبة التكلفة"));
-assert.match(header, /authenticated \? \[publicLink, \.\.\.adminLinks\] : \[publicLink\]/);
+assert.doesNotMatch(header, /authenticated|\/login|\/api\/auth/);
+assert.match(header, /const navLinks = \[publicLink, \.\.\.adminLinks\]/);
 
 const balancesPage = readFileSync(resolve("src/app/reports/customer-balances/page.tsx"), "utf8");
 const balanceDetailsPage = readFileSync(resolve("src/app/reports/customer-balances/[customer]/page.tsx"), "utf8");

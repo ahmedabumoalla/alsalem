@@ -86,9 +86,9 @@ const outputDirectory = process.env.MOBILE_TEST_OUTPUT
 if (outputDirectory) mkdirSync(outputDirectory, { recursive: true });
 const cases = [
   { width: 320, path: "/", name: "home" },
-  { width: 375, path: "/login", name: "login-375" },
+  { width: 375, path: "/sales/new", name: "sales-375" },
   { width: 390, path: "/", name: "home-390" },
-  { width: 430, path: "/login", name: "login-430" },
+  { width: 430, path: "/reports", name: "reports-430" },
 ];
 
 const results = [];
@@ -160,7 +160,7 @@ for (const testCase of cases) {
 }
 
 console.log(JSON.stringify(results, null, 2));
-console.log("✓ Public calculator and login fit 320, 375, 390 and 430px");
+console.log("✓ Public calculator and administration fit 320, 375, 390 and 430px");
 const earlyBrowserExit = new Promise((resolvePromise) => {
   browserProcess.once("exit", resolvePromise);
 });

@@ -1,7 +1,6 @@
 import { createInvoiceRecord, listInvoices } from "@/lib/data/invoices-repository";
 import { parseCreateInvoiceInput } from "@/lib/api/validation";
 import { jsonData, jsonError, readJson } from "@/lib/api/route-utils";
-import { requireAuthorizedApiUser } from "@/lib/auth/require-authorized-user";
 import { isValidReportDate } from "@/lib/utils/report-date-range";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +13,6 @@ function readDate(searchParams: URLSearchParams, key: "dateFrom" | "dateTo") {
 }
 
 export async function GET(request: Request) {
-  const denied = await requireAuthorizedApiUser(); if (denied) return denied;
   try {
     const searchParams = new URL(request.url).searchParams;
     const dateFrom = readDate(searchParams, "dateFrom");
@@ -27,7 +25,6 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const denied = await requireAuthorizedApiUser(); if (denied) return denied;
   try {
     const { invoice, initialPayment } = parseCreateInvoiceInput(await readJson(request));
     return jsonData(await createInvoiceRecord(invoice, initialPayment), 201);

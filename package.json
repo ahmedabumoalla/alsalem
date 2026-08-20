@@ -13,17 +13,13 @@
     "verify:report-filters": "tsx scripts/verify-report-date-filters.ts",
     "verify:logic": "node scripts/verify-logic.mjs",
     "verify:snapshot": "node scripts/verify-snapshot-cache.mjs",
-    "verify:all": "npm run verify:logic && npm run verify:snapshot && npm run verify:accounting && npm run verify:pdf && npm run verify:features && npm run verify:report-filters && npm run verify:auth && npm run verify:green-api && npm run verify:send-sms-hook",
+    "verify:all": "npm run verify:logic && npm run verify:snapshot && npm run verify:accounting && npm run verify:pdf && npm run verify:features && npm run verify:report-filters && npm run verify:access",
     "verify:supabase": "tsx scripts/verify-features.ts",
     "verify:supabase:live": "tsx scripts/verify-supabase-live.ts",
     "verify:mobile": "node scripts/verify-mobile.mjs",
-    "verify:auth": "node scripts/verify-auth-protection.mjs",
-    "verify:green-api": "tsx scripts/verify-green-api.ts",
-    "verify:green-api:live": "tsx scripts/verify-green-api-live.ts",
-    "verify:send-sms-hook": "node scripts/verify-send-sms-hook.mjs"
+    "verify:access": "node scripts/verify-open-access.mjs"
   },
   "dependencies": {
-    "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.110.8",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",

@@ -2,8 +2,25 @@
 
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Invoice } from "@/lib/types/invoice";
-import { formatCurrency } from "@/lib/utils/format";
-import { calculateFinancialTotals, calculateSellerBreakdown } from "@/lib/utils/invoice-report";
+import { formatCurrency, formatPercent } from "@/lib/utils/format";
+import {
+  calculateAhmedCommission,
+  calculateFinancialTotals,
+  calculateSellerBreakdown,
+  isAhmedSeller,
+  type SellerBreakdown,
+} from "@/lib/utils/invoice-report";
+
+function CommissionValue({ seller }: { seller: SellerBreakdown }) {
+  if (!isAhmedSeller(seller.sellerName)) return <span className="text-muted">—</span>;
+  const commission = calculateAhmedCommission(seller.totalProfit);
+  return (
+    <span className="font-bold text-secondary">
+      {formatCurrency(commission.amount)}
+      <small className="mt-1 block font-medium text-muted">{formatPercent(commission.rate * 100)}</small>
+    </span>
+  );
+}
 
 export function InvoiceReportSummary({ invoices }: { invoices: Invoice[] }) {
   const totals = calculateFinancialTotals(invoices);
@@ -23,8 +40,8 @@ export function InvoiceReportSummary({ invoices }: { invoices: Invoice[] }) {
         <CardHeader><CardTitle>تفصيل البائعين</CardTitle><p className="text-sm text-muted">يعتمد على الفلاتر الحالية ويرتب حسب المبيعات.</p></CardHeader>
         {sellers.length === 0 ? <p className="text-sm text-muted">لا توجد بيانات بائعين.</p> : (
           <>
-            <div className="space-y-3 md:hidden">{sellers.map((seller) => <article key={seller.sellerName} className="rounded-xl bg-background p-3"><b className="text-sm text-primary">{seller.sellerName}</b><div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs"><span>المبيعات<b className="mt-1 block">{formatCurrency(seller.totalSales)}</b></span><span>التكلفة<b className="mt-1 block">{formatCurrency(seller.totalCost)}</b></span><span>الربح<b className="mt-1 block">{formatCurrency(seller.totalProfit)}</b></span></div></article>)}</div>
-            <div className="hidden overflow-x-auto md:block"><table className="w-full text-sm"><thead><tr>{["البائع", "إجمالي المبيعات", "إجمالي التكلفة", "إجمالي الربح"].map((label) => <th key={label} className="border-b border-border p-3 text-right">{label}</th>)}</tr></thead><tbody>{sellers.map((seller) => <tr key={seller.sellerName}><td className="border-b border-border p-3 font-medium">{seller.sellerName}</td><td className="border-b border-border p-3">{formatCurrency(seller.totalSales)}</td><td className="border-b border-border p-3">{formatCurrency(seller.totalCost)}</td><td className="border-b border-border p-3 font-bold text-success">{formatCurrency(seller.totalProfit)}</td></tr>)}</tbody></table></div>
+            <div className="space-y-3 md:hidden">{sellers.map((seller) => <article key={seller.sellerName} className="rounded-xl bg-background p-3"><b className="text-sm text-primary">{seller.sellerName}</b><div className="mt-2 grid grid-cols-2 gap-3 text-center text-xs sm:grid-cols-4"><span>المبيعات<b className="mt-1 block">{formatCurrency(seller.totalSales)}</b></span><span>التكلفة<b className="mt-1 block">{formatCurrency(seller.totalCost)}</b></span><span>الربح<b className="mt-1 block">{formatCurrency(seller.totalProfit)}</b></span><span>عمولة أحمد<span className="mt-1 block"><CommissionValue seller={seller} /></span></span></div></article>)}</div>
+            <div className="hidden overflow-x-auto md:block"><table className="w-full text-sm"><thead><tr>{["البائع", "إجمالي المبيعات", "إجمالي التكلفة", "إجمالي الربح", "عمولة أحمد"].map((label) => <th key={label} className="border-b border-border p-3 text-right">{label}</th>)}</tr></thead><tbody>{sellers.map((seller) => <tr key={seller.sellerName}><td className="border-b border-border p-3 font-medium">{seller.sellerName}</td><td className="border-b border-border p-3">{formatCurrency(seller.totalSales)}</td><td className="border-b border-border p-3">{formatCurrency(seller.totalCost)}</td><td className="border-b border-border p-3 font-bold text-success">{formatCurrency(seller.totalProfit)}</td><td className="border-b border-border p-3"><CommissionValue seller={seller} /></td></tr>)}</tbody></table></div>
           </>
         )}
       </Card>

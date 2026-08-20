@@ -5,6 +5,29 @@ export function normalizeSellerName(name: string): string {
   return name.trim().replace(/\s+/g, " ") || "غير محدد";
 }
 
+export function isAhmedSeller(name: string): boolean {
+  return normalizeSellerName(name)
+    .normalize("NFKD")
+    .replace(/[\u064b-\u065f\u0670]/g, "")
+    .replace(/[أإآ]/g, "ا") === "احمد";
+}
+
+export interface SellerCommission {
+  rate: number;
+  amount: number;
+}
+
+export function calculateAhmedCommission(totalProfit: number): SellerCommission {
+  const rate = totalProfit >= 30_000
+    ? 0.3
+    : totalProfit >= 20_000
+      ? 0.2
+      : totalProfit > 10_000
+        ? 0.15
+        : 0;
+  return { rate, amount: roundMoney(Math.max(0, totalProfit) * rate) };
+}
+
 export function hasRecordedCustomerName(name: string): boolean {
   const normalized = name.trim().replace(/\s+/g, " ");
   return normalized !== "" && normalized !== "عميل غير مسجل";
@@ -58,6 +81,7 @@ export interface FinancialTotals {
 export interface SellerBreakdown extends FinancialTotals {
   sellerName: string;
   invoiceCount: number;
+  profitMargin: number;
 }
 
 export function calculateFinancialTotals(invoices: Invoice[]): FinancialTotals {
@@ -81,11 +105,15 @@ export function calculateSellerBreakdown(invoices: Invoice[]): SellerBreakdown[]
       totalCost: 0,
       totalProfit: 0,
       invoiceCount: 0,
+      profitMargin: 0,
     };
     current.totalSales = roundMoney(current.totalSales + invoice.invoiceTotal);
     current.totalCost = roundMoney(current.totalCost + invoice.totalCost);
     current.totalProfit = roundMoney(current.totalProfit + invoice.netProfit);
     current.invoiceCount += 1;
+    current.profitMargin = current.totalSales
+      ? roundMoney((current.totalProfit / current.totalSales) * 100)
+      : 0;
     sellers.set(sellerName, current);
   });
   return [...sellers.values()].sort(

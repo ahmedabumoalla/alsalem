@@ -7,11 +7,13 @@ import { INVOICE_SCHEMA_VERSION } from "../src/lib/types/invoice";
 import {
   GENERAL_REPORT_PREVIEW_LIMIT,
   PDF_LAYOUT,
+  PDF_SELLER_HEADERS,
   PDF_TABLE_HEADERS,
   PdfExportError,
   buildPdfReportFileName,
   canExportPdf,
   createPdfReportDocument,
+  createPdfSellerRows,
   createPdfTableRows,
   createPdfTableTotals,
   formatPdfCurrency,
@@ -58,8 +60,13 @@ async function verify() {
   assert.equal(PDF_LAYOUT.format, "a4");
   assert.equal(PDF_LAYOUT.orientation, "landscape");
   assert.deepEqual(PDF_TABLE_HEADERS, ["التاريخ", "العميل / القياسات", "سعر البيع", "سعر التكلفة", "الفائدة", "البائع"]);
+  assert.deepEqual(PDF_SELLER_HEADERS, ["البائع", "إجمالي المبيعات", "إجمالي التكلفة", "إجمالي الربح", "نسبة الفائدة"]);
+  assert.ok(!PDF_SELLER_HEADERS.some((header) => header.includes("العمولة")));
   assert.equal(createPdfTableRows(invoices).length, 140);
   assert.equal(createPdfTableRows([createInvoice(9)])[0].length, 6);
+  const ahmedSellerRows = createPdfSellerRows([createInvoice(1)]);
+  assert.equal(ahmedSellerRows[0].length, 5);
+  assert.match(ahmedSellerRows[0][0], /%$/);
   assert.equal(formatPdfNumber(12500.75), "12,500.75");
   assert.ok(formatPdfCurrency(250).includes("250.00"));
   assert.ok(formatPdfDate("2026-07-21").includes("2026/07/21"));
@@ -103,9 +110,9 @@ combined = general_text + "\n" + detail_text
 
 required = [
     "التقرير العام", "تقرير الفواتير", "إجمالي المبيعات", "إجمالي التكلفة",
-    "إجمالي الربح", "عدد الفواتير", "هامش الفائدة", "عدد الأصناف",
+    "إجمالي الربح", "عدد الفواتير", "نسبة الفائدة الإجمالية", "عدد الأصناف",
     "إجمالي الكمية", "متوسط الفاتورة", "التاريخ", "العميل / القياسات",
-    "سعر البيع", "سعر التكلفة", "الفائدة", "البائع", "أحمد",
+    "سعر البيع", "سعر التكلفة", "الفائدة", "البائع", "نسبة الفائدة", "أحمد",
     "عبدالسلام أبو أحمد", "مؤسسة صرح العقارية", "41,586.75", "34,736.74",
     "6,850.01", "2026/07/22",
 ]
@@ -132,7 +139,7 @@ if render_dir:
             pixmap.save(output / f"{label}-page-{page_number + 1}.png")
 `;
   const python = spawnSync(
-    "python",
+    process.env.PDF_PYTHON ?? (process.platform === "win32" ? "py" : "python3"),
     ["-c", pythonVerification, generalPath, detailPath, process.env.PDF_RENDER_DIR ?? ""],
     { encoding: "utf8" },
   );

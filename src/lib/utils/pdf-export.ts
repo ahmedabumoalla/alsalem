@@ -54,6 +54,14 @@ export const PDF_TABLE_HEADERS = [
   "البائع",
 ] as const;
 
+export const PDF_SELLER_HEADERS = [
+  "البائع",
+  "إجمالي المبيعات",
+  "إجمالي التكلفة",
+  "إجمالي الربح",
+  "نسبة الفائدة",
+] as const;
+
 export interface PdfReportComposition {
   title: string;
   includesFinancialSummary: boolean;
@@ -243,6 +251,18 @@ export function createPdfTableRows(invoices: Invoice[]): string[][] {
   );
 }
 
+export function createPdfSellerRows(invoices: Invoice[]): string[][] {
+  return calculateSellerBreakdown(invoices).map((seller) =>
+    [
+      isolateRtl(seller.sellerName),
+      isolateLtr(formatPdfNumber(seller.totalSales)),
+      isolateLtr(formatPdfNumber(seller.totalCost)),
+      isolateLtr(formatPdfNumber(seller.totalProfit)),
+      isolateLtr(`${formatPdfNumber(seller.profitMargin)}%`),
+    ].reverse(),
+  );
+}
+
 export interface PdfTableTotals {
   totalSales: number;
   totalCost: number;
@@ -347,7 +367,7 @@ function drawSummaryCards(
 ): number {
   const width = doc.internal.pageSize.getWidth();
   const gap = 4;
-  const columns = 4;
+  const columns = compact ? 5 : 4;
   const cardWidth =
     (width - PDF_LAYOUT.margin * 2 - gap * (columns - 1)) / columns;
   const cards: [string, string][] = [
@@ -356,9 +376,13 @@ function drawSummaryCards(
     ["إجمالي الربح", isolateLtr(formatPdfNumber(summary.totalProfit))],
     ["عدد الفواتير", isolateLtr(summary.invoiceCount)],
   ];
-  if (!compact) {
+  if (compact) {
     cards.push(
-      ["هامش الفائدة", `${isolateLtr(formatPdfNumber(summary.averageProfitMargin))}%`],
+      ["نسبة الفائدة الإجمالية", `${isolateLtr(formatPdfNumber(summary.averageProfitMargin))}%`],
+    );
+  } else {
+    cards.push(
+      ["نسبة الفائدة الإجمالية", `${isolateLtr(formatPdfNumber(summary.averageProfitMargin))}%`],
       ["عدد الأصناف", isolateLtr(summary.itemCount)],
       ["إجمالي الكمية", isolateLtr(summary.totalQuantity)],
       ["متوسط الفاتورة", isolateLtr(formatPdfNumber(summary.averageInvoiceValue))],
@@ -533,9 +557,11 @@ export async function createPdfReportDocument(
     const tableDoc = doc as JsPdfDocument & {
       lastAutoTable?: { finalY: number };
     };
+    const sellerRows = createPdfSellerRows(options.invoices);
     const pageHeight = doc.internal.pageSize.getHeight();
     let sellerTitleY = (tableDoc.lastAutoTable?.finalY ?? y) + 10;
-    if (sellerTitleY > pageHeight - 42) {
+    const sellerSectionHeight = 14 + Math.min(sellerRows.length, 8) * 8;
+    if (sellerTitleY > pageHeight - PDF_LAYOUT.footerHeight - sellerSectionHeight) {
       doc.addPage();
       drawHeader(doc, title, options.filters, generatedAt, options.invoices.length);
       sellerTitleY = 55;
@@ -550,17 +576,9 @@ export async function createPdfReportDocument(
       { align: "right" },
     );
 
-    const sellerRows = calculateSellerBreakdown(options.invoices).map((seller) =>
-      [
-        isolateRtl(seller.sellerName),
-        isolateLtr(formatPdfNumber(seller.totalSales)),
-        isolateLtr(formatPdfNumber(seller.totalCost)),
-        isolateLtr(formatPdfNumber(seller.totalProfit)),
-      ].reverse(),
-    );
     autoTable(doc, {
       startY: sellerTitleY + 4,
-      head: prepareRows(doc, [["البائع", "إجمالي المبيعات", "إجمالي التكلفة", "إجمالي الربح"].reverse()]),
+      head: prepareRows(doc, [PDF_SELLER_HEADERS.slice().reverse()]),
       body: prepareRows(doc, sellerRows),
       showHead: "everyPage",
       margin: {

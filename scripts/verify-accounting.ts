@@ -18,9 +18,11 @@ import {
 } from "../src/lib/utils/excel-export";
 import { normalizePhone } from "../src/lib/utils/contact";
 import {
+  calculateAhmedCommission,
   calculateFinancialTotals,
   calculateSellerBreakdown,
   createInvoiceReportRows,
+  isAhmedSeller,
 } from "../src/lib/utils/invoice-report";
 import type { Invoice } from "../src/lib/types/invoice";
 
@@ -95,7 +97,21 @@ const sellers = calculateSellerBreakdown([migrated, invoice2]);
 assert.equal(sellers.length, 1);
 assert.equal(sellers[0].sellerName, "سالم علي");
 assert.equal(sellers[0].invoiceCount, 2);
+assert.equal(sellers[0].profitMargin, 65);
 assert.deepEqual(calculateFinancialTotals([migrated, invoice2]), { totalSales: 200, totalCost: 80, totalProfit: 130 });
+
+assert.equal(isAhmedSeller("أحمد"), true);
+assert.equal(isAhmedSeller("احمد"), true);
+assert.equal(isAhmedSeller("  أَحْمَد  "), true);
+assert.equal(isAhmedSeller("عبدالسلام أبو أحمد"), false);
+assert.equal(isAhmedSeller("علي"), false);
+assert.deepEqual(calculateAhmedCommission(10_000), { rate: 0, amount: 0 });
+assert.deepEqual(calculateAhmedCommission(10_001), { rate: 0.15, amount: 1_500.15 });
+assert.deepEqual(calculateAhmedCommission(19_999), { rate: 0.15, amount: 2_999.85 });
+assert.deepEqual(calculateAhmedCommission(20_000), { rate: 0.2, amount: 4_000 });
+assert.deepEqual(calculateAhmedCommission(29_999), { rate: 0.2, amount: 5_999.8 });
+assert.deepEqual(calculateAhmedCommission(30_000), { rate: 0.3, amount: 9_000 });
+assert.deepEqual(calculateAhmedCommission(50_000), { rate: 0.3, amount: 15_000 });
 
 const workbook = buildInvoicesWorkbook([migrated, invoice2]);
 assert.equal(strFromU8(workbook.subarray(0, 2)), "PK");

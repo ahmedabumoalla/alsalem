@@ -37,11 +37,17 @@ function createInvoice(index: number): Invoice {
     : index === 2
       ? "عبدالسلام أبو أحمد"
       : `البائع ${index % 5}`;
-  const customerName = index === 1
-    ? "مؤسسة صرح العقارية"
-    : index % 9 === 0
-      ? ""
-      : `العميل ${index}`;
+  const regressionCustomerNames: Record<number, string> = {
+    1: "مؤسسة صرح العقارية",
+    2: "روز تاون",
+    3: "روز تاون",
+    4: "جويعد",
+    5: "رواسي بلس 5",
+    6: "زهرة الامل - قادة الانشاء والتطوير",
+    7: "مؤسسة اكل ابراهيم",
+  };
+  const customerName = regressionCustomerNames[index]
+    ?? (index % 9 === 0 ? "" : `العميل ${index}`);
   return { schemaVersion: INVOICE_SCHEMA_VERSION, id: `invoice-${index}`, invoiceNumber: index === 1 ? "FS-20260722-4RLU" : `FS-2026-${String(index).padStart(4, "0")}`, invoiceDate: index === 1 ? "2026-07-22" : `2026-01-${String(index % 28 + 1).padStart(2, "0")}`, deliveryDate: "2026-08-01", sellerName, customerName, customerPhone: "+966500000000", items: [item], deliveryFee: 25, notes: "ملاحظات سرية", productSubtotal: item.productSubtotal, invoiceTotal, totalCost, netProfit, profitMargin: netProfit / invoiceTotal * 100, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" };
 }
 
@@ -60,13 +66,14 @@ async function verify() {
   assert.equal(PDF_LAYOUT.format, "a4");
   assert.equal(PDF_LAYOUT.orientation, "landscape");
   assert.deepEqual(PDF_TABLE_HEADERS, ["التاريخ", "العميل / القياسات", "سعر البيع", "سعر التكلفة", "الفائدة", "البائع"]);
-  assert.deepEqual(PDF_SELLER_HEADERS, ["البائع", "إجمالي المبيعات", "إجمالي التكلفة", "إجمالي الربح", "نسبة الفائدة"]);
+  assert.deepEqual(PDF_SELLER_HEADERS, ["البائع", "إجمالي المبيعات", "إجمالي التكلفة", "إجمالي الربح"]);
+  assert.ok(!PDF_SELLER_HEADERS.some((header) => header.includes("نسبة")));
   assert.ok(!PDF_SELLER_HEADERS.some((header) => header.includes("العمولة")));
   assert.equal(createPdfTableRows(invoices).length, 140);
   assert.equal(createPdfTableRows([createInvoice(9)])[0].length, 6);
   const ahmedSellerRows = createPdfSellerRows([createInvoice(1)]);
-  assert.equal(ahmedSellerRows[0].length, 5);
-  assert.match(ahmedSellerRows[0][0], /%$/);
+  assert.equal(ahmedSellerRows[0].length, 4);
+  assert.ok(!ahmedSellerRows[0].some((cell) => cell.includes("%")));
   assert.equal(formatPdfNumber(12500.75), "12,500.75");
   assert.ok(formatPdfCurrency(250).includes("250.00"));
   assert.ok(formatPdfDate("2026-07-21").includes("2026/07/21"));
@@ -113,7 +120,9 @@ required = [
     "إجمالي الربح", "عدد الفواتير", "نسبة الفائدة الإجمالية", "عدد الأصناف",
     "إجمالي الكمية", "متوسط الفاتورة", "التاريخ", "العميل / القياسات",
     "سعر البيع", "سعر التكلفة", "الفائدة", "البائع", "نسبة الفائدة", "أحمد",
-    "عبدالسلام أبو أحمد", "مؤسسة صرح العقارية", "41,586.75", "34,736.74",
+    "عبدالسلام أبو أحمد", "مؤسسة صرح العقارية", "روز تاون", "جويعد",
+    "رواسي بلس", "زهرة الامل", "قادة الانشاء والتطوير", "مؤسسة اكل ابراهيم",
+    "41,586.75", "34,736.74",
     "6,850.01", "2026/07/22",
 ]
 for expected in required:

@@ -59,7 +59,6 @@ export const PDF_SELLER_HEADERS = [
   "إجمالي المبيعات",
   "إجمالي التكلفة",
   "إجمالي الربح",
-  "نسبة الفائدة",
 ] as const;
 
 export interface PdfReportComposition {
@@ -258,7 +257,6 @@ export function createPdfSellerRows(invoices: Invoice[]): string[][] {
       isolateLtr(formatPdfNumber(seller.totalSales)),
       isolateLtr(formatPdfNumber(seller.totalCost)),
       isolateLtr(formatPdfNumber(seller.totalProfit)),
-      isolateLtr(`${formatPdfNumber(seller.profitMargin)}%`),
     ].reverse(),
   );
 }
@@ -526,6 +524,12 @@ export async function createPdfReportDocument(
       textColor: COLORS.primary,
       lineColor: COLORS.border,
       lineWidth: 0.15,
+    },
+    didParseCell: ({ section, column, cell }) => {
+      if (section !== "body" || column.index !== 4) return;
+      cell.styles.fontStyle = "bold";
+      cell.styles.fontSize = 9;
+      cell.styles.cellPadding = { top: 2, right: 3, bottom: 2, left: 2 };
     },
     headStyles: {
       font: "Tajawal",

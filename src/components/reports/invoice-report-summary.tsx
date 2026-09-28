@@ -14,10 +14,14 @@ import {
 function CommissionValue({ seller }: { seller: SellerBreakdown }) {
   if (!isAhmedSeller(seller.sellerName)) return <span className="text-muted">—</span>;
   const commission = calculateAhmedCommission(seller.totalProfit);
+  const salary = 2_500;
+  const total = commission.amount + salary;
   return (
-    <span className="font-bold text-secondary">
-      {formatCurrency(commission.amount)}
+    <span className="block font-bold text-secondary">
+      <span className="block">العمولة: {formatCurrency(commission.amount)}</span>
       <small className="mt-1 block font-medium text-muted">{formatPercent(commission.rate * 100)}</small>
+      <span className="mt-2 block font-medium text-foreground">الراتب: {formatCurrency(salary)}</span>
+      <span className="mt-2 block border-t border-border pt-2">الإجمالي: {formatCurrency(total)}</span>
     </span>
   );
 }

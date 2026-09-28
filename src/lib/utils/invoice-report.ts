@@ -18,13 +18,11 @@ export interface SellerCommission {
 }
 
 export function calculateAhmedCommission(totalProfit: number): SellerCommission {
-  const rate = totalProfit >= 30_000
-    ? 0.3
-    : totalProfit >= 20_000
-      ? 0.2
-      : totalProfit > 10_000
-        ? 0.15
-        : 0;
+  const rate = totalProfit >= 20_000
+    ? 0.2
+    : totalProfit > 10_000
+      ? 0.15
+      : 0;
   return { rate, amount: roundMoney(Math.max(0, totalProfit) * rate) };
 }
 

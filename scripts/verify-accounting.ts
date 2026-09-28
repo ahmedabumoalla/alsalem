@@ -109,9 +109,12 @@ assert.deepEqual(calculateAhmedCommission(10_000), { rate: 0, amount: 0 });
 assert.deepEqual(calculateAhmedCommission(10_001), { rate: 0.15, amount: 1_500.15 });
 assert.deepEqual(calculateAhmedCommission(19_999), { rate: 0.15, amount: 2_999.85 });
 assert.deepEqual(calculateAhmedCommission(20_000), { rate: 0.2, amount: 4_000 });
+assert.deepEqual(calculateAhmedCommission(20_001), { rate: 0.2, amount: 4_000.2 });
 assert.deepEqual(calculateAhmedCommission(29_999), { rate: 0.2, amount: 5_999.8 });
-assert.deepEqual(calculateAhmedCommission(30_000), { rate: 0.3, amount: 9_000 });
-assert.deepEqual(calculateAhmedCommission(50_000), { rate: 0.3, amount: 15_000 });
+assert.deepEqual(calculateAhmedCommission(30_000), { rate: 0.2, amount: 6_000 });
+assert.deepEqual(calculateAhmedCommission(30_001), { rate: 0.2, amount: 6_000.2 });
+assert.deepEqual(calculateAhmedCommission(50_000), { rate: 0.2, amount: 10_000 });
+assert.deepEqual(calculateAhmedCommission(1_000_000), { rate: 0.2, amount: 200_000 });
 
 const workbook = buildInvoicesWorkbook([migrated, invoice2]);
 assert.equal(strFromU8(workbook.subarray(0, 2)), "PK");
